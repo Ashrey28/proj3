@@ -1,0 +1,23 @@
+[
+  {
+    "id": "intro_1",
+    "source": "course_notes.txt",
+    "page": 1,
+    "text": "RAG stands for retrieval-augmented generation. A RAG system first retrieves relevant information from a dataset and then uses that retrieved context to generate an answer grounded in the source material.",
+    "metadata": {"topic": "rag basics"}
+  },
+  {
+    "id": "intro_2",
+    "source": "course_notes.txt",
+    "page": 2,
+    "text": "Grounded responses should stay within the evidence returned by retrieval. Good grounding usually includes source citations and avoids unsupported claims that are not present in the retrieved documents.",
+    "metadata": {"topic": "grounding"}
+  },
+  {
+    "id": "intro_3",
+    "source": "project_requirements.txt",
+    "page": 3,
+    "text": "A response-accuracy test set contains known questions and expected answers. Developers can run the chatbot against that set to measure answer quality, source correctness, and groundedness before deployment.",
+    "metadata": {"topic": "evaluation"}
+  }
+]

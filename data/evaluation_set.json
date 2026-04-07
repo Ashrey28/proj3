@@ -1,0 +1,17 @@
+[
+  {
+    "question": "What does RAG stand for?",
+    "expected_answer": "RAG stands for retrieval-augmented generation.",
+    "expected_sources": ["course_notes.txt"]
+  },
+  {
+    "question": "What makes a response grounded?",
+    "expected_answer": "A grounded response stays within retrieved evidence, includes source citations, and avoids unsupported claims.",
+    "expected_sources": ["course_notes.txt"]
+  },
+  {
+    "question": "Why do developers use a response accuracy test set?",
+    "expected_answer": "Developers use a response accuracy test set to measure answer quality, source correctness, and groundedness before deployment.",
+    "expected_sources": ["project_requirements.txt"]
+  }
+]

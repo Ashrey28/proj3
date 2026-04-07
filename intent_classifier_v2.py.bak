@@ -1,0 +1,133 @@
+import json
+import os
+import re
+
+USE_LOCAL = os.environ.get("USE_LOCAL_CLASSIFIER", "false").lower() == "true"
+
+try:
+    from openai import AsyncOpenAI
+except Exception:
+    AsyncOpenAI = None
+    USE_LOCAL = True
+
+client = None if USE_LOCAL or AsyncOpenAI is None else AsyncOpenAI()
+
+INTENTS = ["define", "explain", "explore", "challenge", "clarify", "summarize"]
+CHALLENGE_SUBTYPES = ["pull", "similar", "simpler", "harder", "general"]
+
+CLASSIFICATION_PROMPT = """You are an intent classifier for an adaptive learning chatbot.
+Classify the user's message into exactly one intent and one depth level.
+Return valid JSON only."""
+
+
+def _local_classify(message: str) -> dict:
+    m = message.lower()
+    if re.search(r'\b(what is|define|definition of|meaning of)\b', m):
+        intent, subtype = "define", None
+    elif re.search(r"\b(i don'?t (get|understand)|confused|doesn'?t make sense|wait why|what do you mean)\b", m):
+        intent, subtype = "clarify", None
+    elif re.search(r'\b(summarize|summary|key points|main points|tldr|overview)\b', m):
+        intent, subtype = "summarize", None
+    elif re.search(r'\b(tell me more|more about|what else|explore|interesting about)\b', m):
+        intent, subtype = "explore", None
+    elif re.search(r'\b(quiz|test me|give me a problem|textbook problem|practice problem|question on|challenge me)\b', m):
+        intent = "challenge"
+        if re.search(r'textbook|give me a .{0,20}problem|pull', m):
+            subtype = "pull"
+        elif re.search(r'similar|like that|another one', m):
+            subtype = "similar"
+        elif re.search(r'simpler|easier|too hard', m):
+            subtype = "simpler"
+        elif re.search(r'harder|more challenging|level up', m):
+            subtype = "harder"
+        else:
+            subtype = "general"
+    elif re.search(r'\b(harder|more challenging)\b', m):
+        intent, subtype = "challenge", "harder"
+    elif re.search(r'\b(simpler|easier)\b', m):
+        intent, subtype = "challenge", "simpler"
+    elif re.search(r'\b(similar|like that)\b', m):
+        intent, subtype = "challenge", "similar"
+    elif re.search(r'\b(how does|how do|why does|why do|explain|walk me through|how is|how are)\b', m):
+        intent, subtype = "explain", None
+    else:
+        intent, subtype = "explain", None
+
+    manual_override = False
+    if re.search(r"simply|like i'?m a (beginner|kid)|eli5|no jargon|basic", m):
+        depth, manual_override = 1, True
+    elif re.search(r'go deeper|more technical|assume i know|advanced|rigorous|in depth', m):
+        depth, manual_override = 3, True
+    else:
+        domain_terms = r'eigenvalue|fourier|hamiltonian|manifold|entropy|thermodynamic|quantum|gradient|topology|differential equation'
+        word_count = len(message.split())
+        has_domain = bool(re.search(domain_terms, m))
+        if has_domain and word_count > 15:
+            depth = 3
+        elif has_domain or word_count > 10:
+            depth = 2
+        else:
+            depth = 1
+
+    stop = {'what','is','a','an','the','how','does','do','why','give','me','tell','about','explain','please','can','you','i','my','on','of','for'}
+    words = [w for w in re.sub(r'[^\w\s]', '', m).split() if w not in stop and len(w) > 2]
+    topic = " ".join(words[:4]) if words else message[:40]
+    return {
+        "intent": intent,
+        "depth": depth,
+        "depth_label": ["", "beginner", "intermediate", "advanced"][depth],
+        "challenge_subtype": subtype,
+        "topic": topic,
+        "manual_override": manual_override,
+    }
+
+
+async def classify_intent(message: str, conversation_history: list = None) -> dict:
+    if USE_LOCAL or client is None:
+        return _local_classify(message)
+
+    context = ""
+    if conversation_history:
+        recent = conversation_history[-3:]
+        context = "\nRecent conversation:\n" + "\n".join(f"{m['role'].upper()}: {m['content'][:200]}" for m in recent)
+
+    response = await client.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": CLASSIFICATION_PROMPT},
+            {"role": "user", "content": f"Message: {message}{context}"},
+        ],
+        temperature=0.1,
+        max_tokens=150,
+    )
+    raw = response.choices[0].message.content.strip()
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError:
+        result = _local_classify(message)
+
+    result["intent"] = result.get("intent", "explain")
+    if result["intent"] not in INTENTS:
+        result["intent"] = "explain"
+    result["depth"] = max(1, min(3, int(result.get("depth", 2))))
+    result["depth_label"] = ["", "beginner", "intermediate", "advanced"][result["depth"]]
+    if result["intent"] == "challenge":
+        subtype = result.get("challenge_subtype", "general")
+        result["challenge_subtype"] = subtype if subtype in CHALLENGE_SUBTYPES else "general"
+    else:
+        result["challenge_subtype"] = None
+    return result
+
+
+def apply_session_depth(classified: dict, session_depth_history: list) -> dict:
+    if classified.get("manual_override") or len(session_depth_history) < 3:
+        return classified
+    recent_depths = session_depth_history[-5:]
+    avg = sum(recent_depths) / len(recent_depths)
+    current = classified["depth"]
+    if avg < current - 0.7:
+        classified["depth"] = max(1, current - 1)
+    elif avg > current + 0.7:
+        classified["depth"] = min(3, current + 1)
+    classified["depth_label"] = ["", "beginner", "intermediate", "advanced"][classified["depth"]]
+    return classified

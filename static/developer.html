@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduRAG Evaluation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;600&family=Figtree:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0d0f0e;--paper:#f5f0e8;--panel:#141714;--card:#1a1e1b;--edge:#252a26;--edge2:#2f3530;--amber:#f0a500;--teal:#2dd4a0;--rose:#f05c6e;--sky:#5ca8f0;--text:#e8ede9;--muted:#7a8c7d;--dim:#3a4440;--font-serif:'Instrument Serif', Georgia, serif;--font-mono:'JetBrains Mono', monospace;--font-body:'Figtree', sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0} body{background:var(--ink);color:var(--text);font-family:var(--font-body);line-height:1.6;min-height:100vh} body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");opacity:.028;pointer-events:none;z-index:9999}
+.app{display:grid;grid-template-rows:52px 1fr;min-height:100vh} nav{display:flex;align-items:center;padding:0 20px;background:var(--panel);border-bottom:1px solid var(--edge)} .nav-logo{font-family:var(--font-serif);font-style:italic;font-size:20px;color:var(--paper);margin-right:24px}.nav-logo b{font-style:normal;color:var(--amber)} .nav-tabs{display:flex;height:100%}.nav-tab{display:flex;align-items:center;padding:0 18px;font-size:12.5px;font-weight:500;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;position:relative;top:1px}.nav-tab:hover{color:var(--text)}.nav-tab.active{color:var(--text);border-bottom-color:var(--amber)}
+.main{padding:26px;display:grid;grid-template-columns:360px 1fr;gap:18px} .col{display:flex;flex-direction:column;gap:18px} .card{background:var(--card);border:1px solid var(--edge);border-radius:18px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.12)}
+.h1{font-family:var(--font-serif);font-style:italic;font-size:30px;color:var(--paper);line-height:1.1;margin-bottom:8px}.sub{color:var(--muted);font-size:13px}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px} label{display:block;font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-bottom:7px} input,textarea{width:100%;background:var(--panel);border:1px solid var(--edge2);border-radius:12px;padding:12px 13px;color:var(--text);font:inherit;outline:none} input:focus,textarea:focus{border-color:rgba(240,165,0,.4);box-shadow:0 0 0 3px rgba(240,165,0,.06)} textarea{resize:vertical;min-height:180px}
+button{border:0;background:var(--amber);color:#111;padding:11px 16px;border-radius:10px;font-weight:700;cursor:pointer} button.alt{background:transparent;color:var(--text);border:1px solid var(--edge2)} button:disabled{opacity:.5;cursor:not-allowed}
+.metric-wrap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.metric{padding:14px;border-radius:14px;background:var(--panel);border:1px solid var(--edge)}.metric .k{font-family:var(--font-mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}.metric .v{font-size:26px;font-weight:700;color:var(--paper);margin-top:6px}.metric .s{margin-top:6px;font-size:11px;color:var(--muted);font-family:var(--font-mono)}
+.status{font-family:var(--font-mono);font-size:11px;color:var(--muted)} .table-wrap{overflow:auto;border-radius:14px;border:1px solid var(--edge)} table{width:100%;border-collapse:collapse;min-width:920px} th,td{padding:12px 14px;border-bottom:1px solid var(--edge);vertical-align:top;text-align:left} th{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);background:var(--panel)} td{font-size:12.5px} tr:last-child td{border-bottom:0} .tag{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-family:var(--font-mono);font-size:10px}.ok{background:rgba(45,212,160,.1);border:1px solid rgba(45,212,160,.25);color:var(--teal)}.bad{background:rgba(240,92,110,.1);border:1px solid rgba(240,92,110,.25);color:var(--rose)} pre{white-space:pre-wrap;word-break:break-word;font:inherit;color:inherit}
+@media (max-width: 1100px){.main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <nav>
+    <div class="nav-logo">Edu<b>RAG</b></div>
+    <div class="nav-tabs">
+      <a class="nav-tab" href="/">Chat</a>
+      <a class="nav-tab active" href="/developer">Evaluation</a>
+    </div>
+  </nav>
+  <div class="main">
+    <div class="col">
+      <div class="card">
+        <div class="h1">Evaluation Console</div>
+        <div class="sub">Load more text into the dataset, reload the store, and run the saved evaluation set from one place.</div>
+      </div>
+      <div class="card">
+        <label>Source name</label>
+        <input id="source" value="manual_note.txt" />
+        <div class="grid" style="margin-top:12px">
+          <div>
+            <label>Page</label>
+            <input id="page" value="1" />
+          </div>
+          <div>
+            <label>Dataset status</label>
+            <input id="datasetStatus" value="ready" readonly />
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <label>Text</label>
+          <textarea id="text" placeholder="Paste dataset text here..."></textarea>
+        </div>
+        <div class="row" style="margin-top:14px">
+          <button id="addBtn">Add to dataset</button>
+          <button id="reloadBtn" class="alt">Reload dataset</button>
+        </div>
+        <div id="ingestStatus" class="status" style="margin-top:12px">Idle.</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <div class="row" style="justify-content:space-between;margin-bottom:14px">
+          <div>
+            <div class="h1" style="font-size:26px;margin-bottom:4px">Run evaluation</div>
+            <div class="sub">Compare current outputs against the known question set.</div>
+                      </div>
+          <button id="evalBtn">Run</button>
+        </div>
+        <div class="metric-wrap">
+          <div class="metric"><div class="k">Total</div><div id="total" class="v">-</div><div class="s" id="totalSub">questions</div></div>
+          <div class="metric"><div class="k">Answer accuracy</div><div id="answerAccuracy" class="v">-</div><div class="s" id="answerAccuracySub">-</div></div>
+          <div class="metric"><div class="k">Source accuracy</div><div id="sourceAccuracy" class="v">-</div><div class="s" id="sourceAccuracySub">-</div></div>
+          <div class="metric"><div class="k">Grounded rate</div><div id="groundedRate" class="v">-</div><div class="s" id="groundedRateSub">-</div></div>
+        </div>
+        <div id="evalStatus" class="status" style="margin-top:12px">Idle.</div>
+      </div>
+      <div class="card">
+        <div class="row" style="justify-content:space-between;margin-bottom:12px">
+          <div>
+            <div class="h1" style="font-size:26px;margin-bottom:4px">Per-question results</div>
+            <div class="sub">Each row shows the expected answer, model output, source hit, and grounding result.</div>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Question</th><th>Expected</th><th>Model answer</th><th>F1</th><th>Answer</th><th>Source</th><th>Grounded</th>
+              </tr>
+            </thead>
+            <tbody id="results"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const $ = (id) => document.getElementById(id);
+function badge(value){return `<span class="tag ${value ? 'ok':'bad'}">${value ? 'yes':'no'}</span>`;}
+async function refreshDataset(){
+  try {
+    const res = await fetch('/api/dataset');
+    const data = await res.json();
+    $('datasetStatus').value = `ready · ${data.count} chunks`;
+  } catch (e) {
+    $('datasetStatus').value = 'unavailable';
+  }
+}
+async function addDocument(){
+  $('ingestStatus').textContent = 'Adding...';
+  const res = await fetch('/api/dataset/add', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ source:$('source').value.trim(), text:$('text').value.trim(), page: parseInt($('page').value,10) })
+  });
+  const data = await res.json();
+  $('ingestStatus').textContent = `Added. Dataset count: ${data.count}`;
+  refreshDataset();
+}
+async function reloadDataset(){
+  $('ingestStatus').textContent = 'Reloading...';
+  const res = await fetch('/api/dataset/reload', { method:'POST' });
+  const data = await res.json();
+  $('ingestStatus').textContent = `Reloaded. Dataset count: ${data.count}`;
+  refreshDataset();
+}
+async function runEvaluation(){
+  $('evalStatus').textContent = 'Running...';
+  $('results').innerHTML = '';
+  const res = await fetch('/api/evaluate', { method:'POST' });
+  const data = await res.json();
+  $('evalStatus').textContent = 'Finished.';
+  $('total').textContent = data.summary.total;
+  $('totalSub').textContent = `${data.summary.total} total questions`;
+  $('answerAccuracy').textContent = `${data.summary.answer_accuracy_pct}%`;
+  $('answerAccuracySub').textContent = `${data.summary.answer_correct_count}/${data.summary.total} correct · raw ${data.summary.answer_accuracy}`;
+  $('sourceAccuracy').textContent = `${data.summary.source_accuracy_pct}%`;
+  $('sourceAccuracySub').textContent = `${data.summary.source_correct_count}/${data.summary.total} source hits · raw ${data.summary.source_accuracy}`;
+  $('groundedRate').textContent = `${data.summary.grounded_rate_pct}%`;
+  $('groundedRateSub').textContent = `${data.summary.grounded_count}/${data.summary.total} grounded · raw ${data.summary.grounded_rate}`;
+  data.results.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${item.question}</td>
+      <td>${item.expected_answer}</td>
+      <td><pre>${item.model_answer}</pre></td>
+      <td>${item.token_f1}</td>
+      <td>${badge(item.answer_correct)}</td>
+      <td>${badge(item.source_correct)}</td>
+      <td>${badge(item.grounded)}</td>
+    `;
+    $('results').appendChild(tr);
+  });
+}
+$('addBtn').addEventListener('click', addDocument);
+$('reloadBtn').addEventListener('click', reloadDataset);
+$('evalBtn').addEventListener('click', runEvaluation);
+refreshDataset();
+</script>
+</body>
+</html>
