@@ -1,17 +1,30 @@
 [
   {
-    "question": "What does RAG stand for?",
-    "expected_answer": "RAG stands for retrieval-augmented generation.",
-    "expected_sources": ["course_notes.txt"]
+    "question": "Explain the phenomenon of Quantum Entanglement.",
+    "expected_answer": "Entanglement is a quantum state where the properties of two or more particles are linked such that the state of one cannot be described independently of the others, regardless of distance.",
+    "expected_sources": [
+      "Townsend Quantum Mechanics.pdf"
+    ]
   },
   {
-    "question": "What makes a response grounded?",
-    "expected_answer": "A grounded response stays within retrieved evidence, includes source citations, and avoids unsupported claims.",
-    "expected_sources": ["course_notes.txt"]
+    "question": "What does the Heisenberg Uncertainty Principle state?",
+    "expected_answer": "It states that certain pairs of physical properties, such as position (x) and momentum (p), cannot be simultaneously known with arbitrary precision: ΔxΔp ≥ ħ/2.",
+    "expected_sources": [
+      "Townsend Quantum Mechanics.pdf"
+    ]
   },
   {
-    "question": "Why do developers use a response accuracy test set?",
-    "expected_answer": "Developers use a response accuracy test set to measure answer quality, source correctness, and groundedness before deployment.",
-    "expected_sources": ["project_requirements.txt"]
+    "question": "How does a Quantum Superposition differ from a classical state?",
+    "expected_answer": "In classical physics, a system is in one definite state at a time. In quantum mechanics, a system can exist in multiple states simultaneously until a measurement is performed.",
+    "expected_sources": [
+      "Townsend Quantum Mechanics.pdf"
+    ]
+  },
+  {
+    "question": "What is the purpose of the Schrödinger Equation?",
+    "expected_answer": "The Schrödinger Equation is a linear partial differential equation that governs the wave function of a quantum-mechanical system and describes how it changes over time.",
+    "expected_sources": [
+      "Townsend Quantum Mechanics.pdf"
+    ]
   }
 ]

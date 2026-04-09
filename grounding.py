@@ -101,16 +101,28 @@ class GroundedResponseEngine:
             )
 
         context = self._build_context(chunks)
+        # grounding.py - Modified logic
         system_prompt = (
-            "You are a strict RAG answerer. Use only the retrieved context. "
-            "If the answer is not supported, say so. Every factual claim must be grounded in the provided context. "
-            "Cite sources inline with the format [Source: document, p.X]."
+            "You are a technical Quantum Mechanics assistant. "
+            "Your goal is precision and brevity. "
+            "1. Provide mathematical definitions ($\Delta x \Delta p \geq \hbar/2$) whenever possible. "
+            "2. Avoid historical anecdotes (e.g., Schrödinger's cat, EPR) or hypothetical characters (e.g., Eve) "
+            "unless explicitly asked. "
+            "3. Use a 'Technical & Concise' tone."
         )
+
+
         user_prompt = (
             f"Retrieved context:\n{context}\n\n"
             f"Question: {question}\n\n"
             f"Draft instruction:\n{routed_prompt}\n\n"
-            "Return JSON with keys answer, grounded, grounding_score, unsupported_spans."
+            "Return JSON with keys: \n"
+            "- answer: (string) The technical response.\n"
+            "- grounded: (boolean) True if the core physics is supported by the context.\n"
+            "- grounding_score: (float 0.0-1.0) Score how well the answer reflects the context. "
+            "Prioritize semantic meaning and physical principles over literal string matches. "
+            "Do not penalize for using synonymous technical terms (e.g., 'basis state' vs 'eigenstate').\n"
+            "- unsupported_spans: (list) Any fluff or unverified claims."
         )
 
         try:

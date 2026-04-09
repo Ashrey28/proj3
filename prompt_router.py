@@ -52,6 +52,7 @@ DEPTH_CONFIGS: Dict[int, Dict[str, str]] = {
 
 PROMPT_TEMPLATES: Dict[str, str] = {
 
+    
     "define": """You are a precise, trustworthy learning companion.
 The user wants a definition. {depth_instruction}
 

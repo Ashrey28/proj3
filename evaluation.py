@@ -1,6 +1,16 @@
 import re
 from typing import Any, Dict, List
+from openai import AsyncOpenAI
 
+async def semantic_accuracy_check(prediction: str, reference: str, client: AsyncOpenAI) -> bool:
+    eval_prompt = (
+        f"Ground Truth: {reference}\n"
+        f"Model Answer: {prediction}\n\n"
+        "Does the model answer contain the core physical concept and formulas "
+        "present in the ground truth? Answer with 'YES' or 'NO' and a brief reason."
+    )
+    # Call OpenAI to get a 'YES' or 'NO'
+    # ... logic to return True/False
 
 def normalize_text(text: str) -> str:
     text = text.lower().strip()
@@ -59,9 +69,11 @@ def summarize_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     answer_accuracy = answer_correct_count / total
     source_accuracy = source_correct_count / total
     grounded_rate = grounded_count / total
+    avg_grounding = sum(item.get("grounding_score", 0.0) for item in results) / total if total > 0 else 0
     return {
         "total": total,
         "answer_accuracy": round(answer_accuracy, 4),
+        "mean_grounding_score": round(avg_grounding, 4),
         "source_accuracy": round(source_accuracy, 4),
         "grounded_rate": round(grounded_rate, 4),
         "answer_correct_count": answer_correct_count,

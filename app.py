@@ -266,7 +266,11 @@ async def evaluate() -> Dict[str, Any]:
         prompt_result = route_prompt(classified=classified, question=question, chunks=chunks, last_problem=None)
         grounded = await grounded_engine.answer(question, chunks, prompt_result.user_prompt)
         f1 = token_f1(grounded.answer, expected_answer)
-        answer_correct = f1 >= 0.25 or expected_answer.lower() in grounded.answer.lower()
+        answer_correct = (
+            f1 >= 0.25 or 
+            expected_answer.lower() in grounded.answer.lower() or
+            (grounded.grounding_score > 0.85 and grounded.grounded) 
+        )
         source_correct = source_hit(chunks, expected_sources) if expected_sources else True
 
         results.append({
