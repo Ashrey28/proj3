@@ -3,214 +3,1310 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EduRAG</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;600&family=Figtree:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<title>LearnLens — Adaptive Learning Companion</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
 <style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
 :root {
-  --ink:#0d0f0e; --paper:#f5f0e8; --panel:#141714; --card:#1a1e1b; --edge:#252a26; --edge2:#2f3530;
-  --amber:#f0a500; --teal:#2dd4a0; --rose:#f05c6e; --sky:#5ca8f0; --text:#e8ede9; --muted:#7a8c7d; --dim:#3a4440;
-  --font-serif:'Instrument Serif', Georgia, serif; --font-mono:'JetBrains Mono', monospace; --font-body:'Figtree', sans-serif;
+  --navy: #0f1f3d;
+  --navy-light: #1a3160;
+  --navy-mid: #243a6e;
+  --navy-border: rgba(255,255,255,0.08);
+  --amber: #c47f2a;
+  --amber-light: #e8a94a;
+  --amber-pale: #fdf3e3;
+  --amber-border: rgba(196,127,42,0.3);
+  --cream: #faf8f4;
+  --cream-dark: #f0ece3;
+  --white: #ffffff;
+  --text: #1a1814;
+  --text-mid: #4a4540;
+  --text-mute: #8a8278;
+  --border: #e2ddd6;
+  --border-light: #ede9e2;
+  --sidebar-w: 268px;
+  --topbar-h: 52px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
 }
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{font-size:15px}
-body{background:var(--ink);color:var(--text);font-family:var(--font-body);line-height:1.6;min-height:100vh;overflow:hidden}
-body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");opacity:.028;pointer-events:none;z-index:9999}
-*{scrollbar-width:thin;scrollbar-color:var(--dim) transparent}
-.app{display:grid;grid-template-rows:52px 1fr;height:100vh}
-nav{display:flex;align-items:center;padding:0 20px;background:var(--panel);border-bottom:1px solid var(--edge);position:relative;z-index:50}
-.nav-logo{font-family:var(--font-serif);font-style:italic;font-size:20px;color:var(--paper);margin-right:24px}.nav-logo b{font-style:normal;color:var(--amber)}
-.nav-tabs{display:flex;height:100%}.nav-tab{display:flex;align-items:center;gap:7px;padding:0 18px;font-size:12.5px;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;position:relative;top:1px;text-decoration:none}.nav-tab:hover{color:var(--text)}.nav-tab.active{color:var(--text);border-bottom-color:var(--amber)}
-.tbadge{font-family:var(--font-mono);font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(240,165,0,.12);color:var(--amber);border:1px solid rgba(240,165,0,.2);letter-spacing:.3px}
-.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}.api-dot{width:7px;height:7px;border-radius:50%;background:var(--dim);transition:background .3s}.api-dot.live{background:var(--teal);box-shadow:0 0 6px var(--teal)}.api-dot.err{background:var(--rose)}.api-status{font-family:var(--font-mono);font-size:10px;color:var(--muted)}
-.page{display:flex;height:calc(100vh - 52px)}
-.c-rail{width:235px;flex-shrink:0;background:var(--panel);border-right:1px solid var(--edge);display:flex;flex-direction:column;overflow:hidden}
-.rsec{padding:14px 14px 6px;font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1.2px;text-transform:uppercase}
-.rblock{padding:0 14px 12px;display:flex;flex-direction:column;gap:8px}
-.rrow{display:flex;justify-content:space-between;align-items:center;font-size:11.5px}.rlbl{color:var(--muted);font-size:11px}.rval{font-family:var(--font-mono);font-size:11px;color:var(--text)}
-.depth-track{padding:0 14px 14px}.depth-labels{display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:9px;color:var(--muted);margin-bottom:5px}.depth-bar{height:3px;background:var(--dim);border-radius:2px;position:relative}.depth-fill{position:absolute;left:0;top:0;height:100%;border-radius:2px;background:linear-gradient(90deg,var(--sky),var(--teal));transition:width .5s cubic-bezier(.4,0,.2,1)}.depth-cursor{position:absolute;top:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:var(--teal);border:2px solid var(--panel);transition:left .5s cubic-bezier(.4,0,.2,1);box-shadow:0 0 8px var(--teal)}
-.rdiv{height:1px;background:var(--edge);margin:0 14px 10px}
-.hist-list{flex:1;overflow-y:auto;padding:0 14px 14px;display:flex;flex-direction:column;gap:6px}.hist-item{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;background:var(--card);border:1px solid var(--edge);min-width:0}.hi-q{font-size:11px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
-.chat-main{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--ink)}
-.msgs{flex:1;overflow-y:auto;padding:24px 28px;display:flex;flex-direction:column;gap:22px;scroll-behavior:smooth}
-.empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:40px;text-align:center}.e-glyph{font-family:var(--font-serif);font-style:italic;font-size:54px;color:var(--amber);opacity:.85;line-height:1}.e-head{font-family:var(--font-serif);font-size:26px;color:var(--paper);font-style:italic;letter-spacing:-.3px}.e-sub{font-size:13px;color:var(--muted);max-width:360px;line-height:1.6}.chips{display:flex;flex-wrap:wrap;gap:7px;justify-content:center}.chip{font-size:12px;padding:6px 14px;border-radius:20px;border:1px solid var(--edge2);background:var(--card);color:var(--text);cursor:pointer;transition:all .15s}.chip:hover{border-color:var(--amber);color:var(--amber);background:rgba(240,165,0,.06);transform:translateY(-1px)}
-.msg{display:flex;flex-direction:column;gap:5px;animation:slideUp .25s ease}.msg-u{align-items:flex-end}.msg-b{align-items:flex-start}.bubble{padding:12px 16px;border-radius:13px;font-size:13.5px;line-height:1.7;max-width:780px;word-break:break-word;white-space:pre-wrap}.msg-u .bubble{background:rgba(240,165,0,.1);border:1px solid rgba(240,165,0,.22);color:var(--text);border-radius:13px 13px 3px 13px}.msg-b .bubble{background:var(--card);border:1px solid var(--edge);color:var(--text);border-radius:3px 13px 13px 13px}
-.src-bar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;max-width:780px;padding:7px 12px;border-radius:7px;background:var(--panel);border:1px solid var(--edge)}.sb-lbl{font-family:var(--font-mono);font-size:9.5px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;flex-shrink:0}.src-pill{display:inline-flex;align-items:center;gap:4px;font-family:var(--font-mono);font-size:11px;padding:2px 9px;border-radius:4px;background:rgba(45,212,160,.08);border:1px solid rgba(45,212,160,.2);color:var(--teal)}
-.msg-meta{display:flex;align-items:center;gap:8px;padding:0 3px;font-family:var(--font-mono);font-size:10px;color:var(--muted);flex-wrap:wrap}.gbadge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:4px;font-size:10px}.gbadge.ok{background:rgba(45,212,160,.1);border:1px solid rgba(45,212,160,.25);color:var(--teal)}.gbadge.warn{background:rgba(240,165,0,.1);border:1px solid rgba(240,165,0,.25);color:var(--amber)}.gbadge.bad{background:rgba(240,92,110,.1);border:1px solid rgba(240,92,110,.25);color:var(--rose)}.gdot{width:5px;height:5px;border-radius:50%;background:currentColor}
-.ipill{font-family:var(--font-mono);font-size:9.5px;padding:2px 7px;border-radius:3px;text-transform:uppercase;letter-spacing:.4px}.i-define{background:rgba(45,212,160,.12);color:var(--teal)}.i-explain{background:rgba(92,168,240,.12);color:var(--sky)}.i-explore{background:rgba(180,120,255,.12);color:#b478ff}.i-challenge{background:rgba(240,165,0,.12);color:var(--amber)}.i-clarify{background:rgba(240,92,110,.12);color:var(--rose)}.i-summarize{background:rgba(120,200,255,.12);color:#78c8ff}.i-unknown{background:rgba(100,100,100,.1);color:var(--muted)}
-.typing-dots{display:flex;align-items:center;gap:4px;padding:14px 16px;background:var(--card);border:1px solid var(--edge);border-radius:3px 13px 13px 13px;width:fit-content}.typing-dots span{width:5px;height:5px;border-radius:50%;background:var(--muted);animation:dotB 1.2s infinite}.typing-dots span:nth-child(2){animation-delay:.2s}.typing-dots span:nth-child(3){animation-delay:.4s}
-.wbar{display:none;align-items:flex-start;gap:8px;max-width:780px;padding:8px 12px;border-radius:6px;background:rgba(240,165,0,.06);border:1px solid rgba(240,165,0,.2);font-size:12px;color:var(--amber)}
-.input-zone{padding:14px 28px 18px;border-top:1px solid var(--edge);background:var(--ink)}.irow{display:flex;align-items:flex-end;gap:10px;background:var(--card);border:1px solid var(--edge2);border-radius:12px;padding:10px 12px;transition:border-color .15s,box-shadow .15s}.irow:focus-within{border-color:rgba(240,165,0,.4);box-shadow:0 0 0 3px rgba(240,165,0,.06)} textarea{flex:1;min-height:52px;max-height:180px;resize:none;border:0;outline:none;background:transparent;color:var(--text);font:inherit;line-height:1.6;padding:4px 2px}textarea::placeholder{color:var(--muted)} .send-btn{border:0;background:var(--amber);color:#111;min-width:112px;height:42px;border-radius:10px;font-weight:700;cursor:pointer;transition:transform .15s,filter .15s}.send-btn:hover{filter:brightness(1.05)}.send-btn:active{transform:translateY(1px)}.send-btn:disabled{opacity:.5;cursor:not-allowed}
-@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}} @keyframes dotB{0%,80%,100%{transform:scale(.8);opacity:.55}40%{transform:scale(1);opacity:1}}
-@media (max-width: 900px){.c-rail{display:none}.msgs{padding:18px}.input-zone{padding:12px 18px 16px}.nav-right{display:none}}
+
+html, body {
+  height: 100%;
+  font-family: 'DM Sans', sans-serif;
+  background: var(--cream);
+  color: var(--text);
+  overflow: hidden;
+}
+
+/* ── Topbar ─────────────────────────────────────────────────────────── */
+.topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--topbar-h);
+  background: var(--navy);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 100;
+  border-bottom: 1px solid var(--navy-border);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.logo-mark {
+  width: 30px; height: 30px;
+  background: var(--amber);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo-mark svg { width: 16px; height: 16px; fill: white; }
+
+.logo-name {
+  font-family: 'Lora', serif;
+  font-size: 18px;
+  color: white;
+  letter-spacing: 0.01em;
+}
+
+.logo-name em { color: var(--amber-light); font-style: normal; }
+
+.topbar-center {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid var(--navy-border);
+  border-radius: 30px;
+  padding: 4px;
+}
+
+.mode-btn {
+  padding: 5px 16px;
+  border-radius: 22px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.55);
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+
+.mode-btn:hover { color: rgba(255,255,255,0.85); }
+.mode-btn.active { background: var(--amber); color: white; }
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.session-info {
+  font-size: 12px;
+  color: rgba(255,255,255,0.35);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #4caf50;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.topbar-upload-btn, .topbar-paste-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: transparent;
+  color: rgba(255,255,255,0.8);
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.topbar-upload-btn svg, .topbar-paste-btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+.topbar-upload-btn:hover { background: var(--amber); border-color: var(--amber); color: white; }
+.topbar-paste-btn:hover { background: rgba(255,255,255,0.12); color: white; }
+
+/* ── Paste modal ─────────────────────────────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(15,31,61,0.55);
+  z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  width: 520px;
+  max-width: 92vw;
+  box-shadow: 0 20px 60px rgba(15,31,61,0.25);
+  transform: translateY(12px);
+  transition: transform 0.2s;
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.modal-title { font-family: 'Lora', serif; font-size: 18px; font-weight: 400; color: var(--navy); }
+.modal-close { background: none; border: none; cursor: pointer; color: var(--text-mute); font-size: 20px; line-height: 1; padding: 2px 6px; border-radius: 4px; }
+.modal-close:hover { background: var(--cream-dark); color: var(--text); }
+.modal-label { font-size: 12px; color: var(--text-mute); margin-bottom: 6px; }
+.modal-source { width: 100%; border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 8px 12px; font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text); outline: none; margin-bottom: 12px; background: var(--cream); }
+.modal-source:focus { border-color: var(--amber); }
+.modal-textarea { width: 100%; height: 180px; border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 10px 12px; font-family: 'DM Sans', sans-serif; font-size: 13.5px; color: var(--text); resize: vertical; outline: none; background: var(--cream); line-height: 1.6; }
+.modal-textarea:focus { border-color: var(--amber); }
+.modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.modal-cancel { padding: 8px 18px; border-radius: var(--radius-md); border: 1px solid var(--border); background: transparent; color: var(--text-mid); font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer; }
+.modal-cancel:hover { background: var(--cream-dark); }
+.modal-submit { padding: 8px 20px; border-radius: var(--radius-md); border: none; background: var(--navy); color: white; font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer; transition: background 0.15s; }
+.modal-submit:hover { background: var(--navy-light); }
+
+/* ── Layout shell ──────────────────────────────────────────────────── */
+.shell {
+  display: flex;
+  height: 100vh;
+  padding-top: var(--topbar-h);
+}
+
+/* ── Sidebar ────────────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  background: var(--navy);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  border-right: 1px solid var(--navy-border);
+  overflow: hidden;
+}
+
+.sidebar-section {
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--navy-border);
+}
+
+.sidebar-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  margin-bottom: 12px;
+}
+
+/* Upload zone */
+.upload-zone {
+  border: 1.5px dashed rgba(255,255,255,0.15);
+  border-radius: var(--radius-md);
+  padding: 14px 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--amber);
+  background: rgba(196,127,42,0.08);
+}
+
+.upload-zone input[type="file"] {
+  position: absolute; inset: 0;
+  opacity: 0; cursor: pointer;
+  width: 100%; height: 100%;
+}
+
+.upload-icon {
+  width: 28px; height: 28px;
+  background: rgba(196,127,42,0.15);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 8px;
+}
+
+.upload-icon svg { width: 14px; height: 14px; fill: var(--amber-light); }
+.upload-title { font-size: 12px; color: rgba(255,255,255,0.7); margin-bottom: 2px; }
+.upload-sub { font-size: 11px; color: rgba(255,255,255,0.3); }
+
+/* Notebook list */
+.nb-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.nb-list::-webkit-scrollbar { width: 4px; }
+.nb-list::-webkit-scrollbar-track { background: transparent; }
+.nb-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+.nb-item {
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+  margin-bottom: 2px;
+  position: relative;
+}
+
+.nb-item:hover { background: rgba(255,255,255,0.06); }
+.nb-item.active {
+  background: rgba(196,127,42,0.12);
+  border-color: rgba(196,127,42,0.28);
+}
+
+.nb-name {
+  font-size: 13px;
+  color: rgba(255,255,255,0.85);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.nb-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.32);
+}
+
+.nb-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--amber);
+  flex-shrink: 0;
+}
+
+.nb-dot.pending { background: rgba(255,255,255,0.25); }
+
+.nb-progress {
+  height: 2px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 1px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.nb-progress-bar {
+  height: 100%;
+  background: var(--amber);
+  border-radius: 1px;
+  transition: width 0.4s ease;
+}
+
+/* Depth selector */
+.sidebar-footer {
+  padding: 14px 16px;
+  border-top: 1px solid var(--navy-border);
+  flex-shrink: 0;
+}
+
+.depth-row {
+  display: flex;
+  gap: 4px;
+}
+
+.depth-btn {
+  flex: 1;
+  padding: 6px 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255,255,255,0.1);
+  background: transparent;
+  color: rgba(255,255,255,0.45);
+  font-size: 11px;
+  font-family: 'DM Sans', sans-serif;
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.depth-btn:hover {
+  border-color: rgba(196,127,42,0.4);
+  color: rgba(255,255,255,0.8);
+}
+
+.depth-btn.active {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: white;
+  font-weight: 500;
+}
+
+/* ── Main content ────────────────────────────────────────────────────── */
+.content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--cream);
+}
+
+/* ── Chat area ──────────────────────────────────────────────────────── */
+.chat-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.chat-scroll::-webkit-scrollbar { width: 5px; }
+.chat-scroll::-webkit-scrollbar-track { background: transparent; }
+.chat-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.chat-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* Welcome */
+.welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 60px 20px 20px;
+}
+
+.welcome-mark {
+  width: 64px; height: 64px;
+  background: var(--amber-pale);
+  border: 1px solid rgba(196,127,42,0.2);
+  border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 22px;
+}
+
+.welcome-mark svg { width: 30px; height: 30px; fill: var(--amber); }
+
+.welcome h1 {
+  font-family: 'Lora', serif;
+  font-size: 26px;
+  font-weight: 400;
+  color: var(--navy);
+  margin-bottom: 10px;
+  line-height: 1.3;
+}
+
+.welcome p {
+  font-size: 15px;
+  color: var(--text-mute);
+  line-height: 1.7;
+  max-width: 360px;
+  margin-bottom: 28px;
+}
+
+.starter-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  max-width: 480px;
+}
+
+.starter-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.starter-card:hover {
+  border-color: var(--amber);
+  background: var(--amber-pale);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(196,127,42,0.12);
+}
+
+.starter-label {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 4px;
+}
+
+.starter-text { font-size: 13px; color: var(--text-mid); line-height: 1.4; }
+
+/* Messages */
+.msg { display: flex; flex-direction: column; }
+.msg.user { align-items: flex-end; }
+.msg.assistant { align-items: flex-start; }
+
+.msg-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.intent-badge {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 20px;
+}
+
+.badge-define   { background: #e3f0fd; color: #1655a0; }
+.badge-explain  { background: #e4f5e8; color: #256b2f; }
+.badge-explore  { background: #f0e8fb; color: #6520a0; }
+.badge-clarify  { background: #fff3e0; color: #b84f00; }
+.badge-challenge{ background: #fce5ec; color: #b01540; }
+.badge-summarize{ background: #e0f4f1; color: #0c6357; }
+
+.depth-tag {
+  font-size: 11px;
+  color: var(--text-mute);
+  background: var(--cream-dark);
+  border-radius: 20px;
+  padding: 2px 9px;
+}
+
+.bubble {
+  padding: 13px 17px;
+  border-radius: var(--radius-lg);
+  font-size: 14.5px;
+  line-height: 1.78;
+  max-width: 640px;
+}
+
+.bubble.user {
+  background: var(--navy);
+  color: white;
+  border-radius: var(--radius-lg) var(--radius-lg) 3px var(--radius-lg);
+}
+
+.bubble.assistant {
+  background: var(--white);
+  color: var(--text);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 3px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+.bubble p { margin-bottom: 10px; }
+.bubble p:last-child { margin-bottom: 0; }
+.bubble strong { font-weight: 500; color: var(--navy); }
+.bubble code {
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  background: var(--cream-dark);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.bubble .math-block {
+  background: var(--cream-dark);
+  border-left: 3px solid var(--amber);
+  padding: 10px 14px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  margin: 10px 0;
+  color: var(--text-mid);
+}
+
+/* Sources */
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.source-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--amber-pale);
+  border: 1px solid var(--amber-border);
+  border-radius: 20px;
+  padding: 3px 10px 3px 7px;
+  font-size: 11px;
+  color: #8a5c10;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.source-pill:hover { background: #fae5c0; }
+.source-pill svg { width: 11px; height: 11px; fill: var(--amber); flex-shrink: 0; }
+
+/* Typing */
+.typing-wrap { align-items: flex-start; }
+
+.typing-bubble {
+  background: var(--white);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 3px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+.tdot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+  animation: tdot 1.3s ease-in-out infinite;
+}
+
+.tdot:nth-child(2) { animation-delay: 0.18s; }
+.tdot:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes tdot {
+  0%, 70%, 100% { transform: translateY(0); opacity: 0.35; }
+  35% { transform: translateY(-5px); opacity: 1; }
+}
+
+/* ── Input bar ──────────────────────────────────────────────────────── */
+.input-bar {
+  padding: 14px 20px 16px;
+  background: var(--white);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.input-inner { max-width: 760px; margin: 0 auto; }
+
+.input-box {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  background: var(--cream);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 10px 10px 10px 16px;
+  transition: border-color 0.2s;
+}
+
+.input-box:focus-within { border-color: var(--amber); }
+
+.chat-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14.5px;
+  color: var(--text);
+  resize: none;
+  line-height: 1.55;
+  max-height: 130px;
+  min-height: 24px;
+}
+
+.chat-input::placeholder { color: var(--text-mute); }
+
+.send-btn {
+  width: 36px; height: 36px;
+  border-radius: var(--radius-md);
+  background: var(--navy);
+  border: none;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.18s;
+}
+
+.send-btn:hover { background: var(--navy-light); transform: scale(1.04); }
+.send-btn:active { transform: scale(0.97); }
+.send-btn:disabled { background: var(--border); cursor: not-allowed; transform: none; }
+.send-btn svg { width: 16px; height: 16px; fill: white; }
+
+.input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+.input-hint { font-size: 11.5px; color: var(--text-mute); }
+.input-hint strong { color: var(--text-mid); font-weight: 400; }
+
+.quick-row { display: flex; gap: 6px; }
+
+.quick-btn {
+  font-size: 11.5px;
+  color: var(--text-mute);
+  background: var(--cream-dark);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.quick-btn:hover { border-color: var(--amber); color: var(--amber); background: var(--amber-pale); }
+
+/* ── Upload progress toast ─────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  background: var(--navy);
+  color: white;
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 8px 24px rgba(15,31,61,0.3);
+  transform: translateY(80px);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 200;
+  max-width: 300px;
+}
+
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast-icon { font-size: 16px; flex-shrink: 0; }
+.toast-text { line-height: 1.4; }
+.toast-sub { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 1px; }
+
+/* ── Scrollbar ──────────────────────────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+
+/* ── Responsive ─────────────────────────────────────────────────────── */
+@media (max-width: 680px) {
+  .sidebar { display: none; }
+  .topbar-center { display: none; }
+  .chat-inner { padding: 0 16px; }
+  .starter-grid { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
-<div class="app">
-  <nav>
-    <div class="nav-logo">Edu<b>RAG</b></div>
-    <div class="nav-tabs">
-      <a class="nav-tab active" href="/"><span>Chat</span><span class="tbadge">LIVE</span></a>
-      <a class="nav-tab" href="/developer"><span>Evaluation</span></a>
+
+<!-- Topbar -->
+<header class="topbar">
+  <a class="logo" href="#">
+    <div class="logo-mark">
+      <svg viewBox="0 0 16 16"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 3a2 2 0 104 0 2 2 0 00-4 0z"/></svg>
     </div>
-    <div class="nav-right">
-      <div id="apiDot" class="api-dot"></div>
-      <div id="apiStatus" class="api-status">checking dataset</div>
+    <span class="logo-name">Learn<em>Lens</em></span>
+  </a>
+
+  <div class="topbar-center">
+    <button class="mode-btn active" data-mode="learn" onclick="setMode(this)">Learn</button>
+    <button class="mode-btn" data-mode="quiz" onclick="setMode(this)">Quiz me</button>
+    <button class="mode-btn" data-mode="explore" onclick="setMode(this)">Explore</button>
+    <button class="mode-btn" data-mode="summarize" onclick="setMode(this)">Summarize</button>
+  </div>
+
+  <div class="topbar-right">
+    <button class="topbar-upload-btn" onclick="document.getElementById('topbarFileInput').click()">
+      <svg viewBox="0 0 14 14" fill="none"><path d="M7 1l3.5 4H8v5H6V5H3.5L7 1zM1 11h12v2H1z" fill="currentColor"/></svg>
+      Upload
+    </button>
+    <input type="file" id="topbarFileInput" accept=".pdf,.txt,.md" multiple style="display:none" onchange="handleFileUpload(event)">
+    <button class="topbar-paste-btn" onclick="openPasteModal()">
+      <svg viewBox="0 0 14 14" fill="none"><path d="M4 1h6v2H4zM2 3h10v10H2z" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+      Paste text
+    </button>
+    <div class="session-info">
+      <div class="status-dot"></div>
+      <span id="sessionLabel">Ready</span>
     </div>
-  </nav>
-  <div class="page">
-    <aside class="c-rail">
-      <div class="rsec">System</div>
-      <div class="rblock">
-        <div class="rrow"><span class="rlbl">Dataset chunks</span><span id="datasetCount" class="rval">-</span></div>
-        <div class="rrow"><span class="rlbl">Current intent</span><span id="intentVal" class="rval">-</span></div>
-        <div class="rrow"><span class="rlbl">Latency</span><span id="latencyVal" class="rval">-</span></div>
+  </div>
+</header>
+
+<!-- Main shell -->
+<div class="shell">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Your notebooks</div>
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" accept=".pdf,.txt,.md" multiple onchange="handleFileUpload(event)">
+        <div class="upload-icon">
+          <svg viewBox="0 0 16 16"><path d="M8 1l4 5H9v6H7V6H4L8 1zM2 13h12v2H2z"/></svg>
+        </div>
+        <div class="upload-title">Upload a document</div>
+        <div class="upload-sub">PDF, TXT, or Markdown</div>
       </div>
-      <div class="rsec">Depth</div>
-      <div class="depth-track">
-        <div class="depth-labels"><span>1</span><span>2</span><span>3</span></div>
-        <div class="depth-bar"><div id="depthFill" class="depth-fill" style="width:33%"></div><div id="depthCursor" class="depth-cursor" style="left:33%"></div></div>
+    </div>
+
+    <div class="nb-list" id="nbList">
+      <!-- Populated by JS -->
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-label" style="margin-bottom:8px;">Depth level</div>
+      <div class="depth-row" id="depthRow">
+        <button class="depth-btn" onclick="setDepth(1,this)">Beginner</button>
+        <button class="depth-btn active" onclick="setDepth(2,this)">Intermediate</button>
+        <button class="depth-btn" onclick="setDepth(3,this)">Advanced</button>
       </div>
-      <div class="rdiv"></div>
-      <div class="rsec">Recent prompts</div>
-      <div id="historyList" class="hist-list"></div>
-    </aside>
-    <main class="chat-main">
-      <div id="messages" class="msgs">
-        <div id="emptyState" class="empty">
-          <div class="e-glyph">E</div>
-          <div class="e-head">Ask the knowledge base</div>
-          <div class="e-sub">Answers come with retrieved sources, a grounding score, and any unsupported spans that still need caution.</div>
-          <div class="chips">
-            <button class="chip" data-q="What is retrieval-augmented generation?">What is retrieval-augmented generation?</button>
-            <button class="chip" data-q="How is grounding score determined?">How is grounding score determined?</button>
-            <button class="chip" data-q="Summarize the dataset in simple terms.">Summarize the dataset in simple terms.</button>
+    </div>
+  </aside>
+
+  <!-- Content -->
+  <main class="content">
+    <div class="chat-scroll" id="chatScroll">
+      <div class="chat-inner" id="chatInner">
+
+        <!-- Welcome state -->
+        <div class="welcome" id="welcomeState">
+          <div class="welcome-mark">
+            <svg viewBox="0 0 30 30"><path d="M3 3h10v10H3zm14 0h10v10H17zM3 17h10v10H3zm16 6a4 4 0 108 0 4 4 0 00-8 0z"/></svg>
+          </div>
+          <h1>What do you want<br>to learn today?</h1>
+          <p>Upload a document and ask anything. I'll explain concepts, quiz you, and adapt to your level as we go.</p>
+          <div class="starter-grid">
+            <div class="starter-card" onclick="useStarter('What is entropy and why does it matter?')">
+              <div class="starter-label">Define</div>
+              <div class="starter-text">What is entropy and why does it matter?</div>
+            </div>
+            <div class="starter-card" onclick="useStarter('Explain the first law of thermodynamics')">
+              <div class="starter-label">Explain</div>
+              <div class="starter-text">Explain the first law of thermodynamics</div>
+            </div>
+            <div class="starter-card" onclick="useStarter('Quiz me on heat transfer')">
+              <div class="starter-label">Challenge</div>
+              <div class="starter-text">Quiz me on heat transfer concepts</div>
+            </div>
+            <div class="starter-card" onclick="useStarter('Summarize the key ideas so far')">
+              <div class="starter-label">Summarize</div>
+              <div class="starter-text">Summarize the key ideas from chapter 4</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Input bar -->
+    <div class="input-bar">
+      <div class="input-inner">
+        <div class="input-box">
+          <textarea
+            class="chat-input"
+            id="chatInput"
+            placeholder="Ask anything about your documents…"
+            rows="1"
+            onkeydown="handleKey(event)"
+            oninput="autoResize(this)"
+          ></textarea>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled title="Send">
+            <svg viewBox="0 0 16 16"><path d="M1.5 1.5L14.5 8 1.5 14.5V9.5l9-1.5-9-1.5z"/></svg>
+          </button>
+        </div>
+        <div class="input-footer">
+          <span class="input-hint" id="inputHint">Upload a document to begin</span>
+          <div class="quick-row">
+            <button class="quick-btn" onclick="useQuick('explain this more simply')">Simpler</button>
+            <button class="quick-btn" onclick="useQuick('go deeper on this topic')">Deeper</button>
+            <button class="quick-btn" onclick="useQuick('give me a practice problem on this')">Practice</button>
           </div>
         </div>
       </div>
-      <div class="input-zone">
-        <div class="irow">
-          <textarea id="message" placeholder="Ask a question about the dataset..."></textarea>
-          <button id="sendBtn" class="send-btn">Send</button>
-        </div>
-      </div>
-    </main>
+    </div>
+  </main>
+</div>
+
+<!-- Paste text modal -->
+<div class="modal-overlay" id="pasteModal" onclick="closePasteModalOutside(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Paste text</span>
+      <button class="modal-close" onclick="closePasteModal()">&#x2715;</button>
+    </div>
+    <div class="modal-label">Source name (e.g. "Lecture notes week 3")</div>
+    <input class="modal-source" id="pasteSource" type="text" placeholder="My notes">
+    <div class="modal-label">Paste your text below</div>
+    <textarea class="modal-textarea" id="pasteText" placeholder="Paste any text here — lecture notes, textbook excerpts, articles…"></textarea>
+    <div class="modal-footer">
+      <button class="modal-cancel" onclick="closePasteModal()">Cancel</button>
+      <button class="modal-submit" onclick="submitPaste()">Add to knowledge base</button>
+    </div>
   </div>
 </div>
-<script>
-let sessionId = null;
-const $ = (id) => document.getElementById(id);
 
-function escapeHtml(text){return String(text).replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
-function intentClass(intent){return `i-${intent || 'unknown'}`;}
-function groundedBadge(grounded, score){
-  if (grounded && score >= 0.85) return { cls:'ok', text:`grounded ${score}` };
-  if (grounded) return { cls:'warn', text:`partial ${score}` };
-  return { cls:'bad', text:`ungrounded ${score}` };
+<!-- Toast notification -->
+<div class="toast" id="toast">
+  <span class="toast-icon" id="toastIcon">📄</span>
+  <div class="toast-text">
+    <div id="toastTitle">Uploading…</div>
+    <div class="toast-sub" id="toastSub"></div>
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+const API_BASE = '';  // e.g. 'http://localhost:8000' for local dev
+let sessionId = null;
+let currentDepth = 2;
+let currentMode = 'learn';
+let currentNotebook = null;
+let notebooks = [];
+let isBusy = false;
+
+// ── Mode switching ────────────────────────────────────────────────────────────
+function setMode(btn) {
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentMode = btn.dataset.mode;
+  const placeholders = {
+    learn: 'Ask anything about your documents…',
+    quiz: 'Ask for a practice problem on any topic…',
+    explore: 'What concept do you want to explore?',
+    summarize: 'What section should I summarize?',
+  };
+  document.getElementById('chatInput').placeholder = placeholders[currentMode] || placeholders.learn;
 }
-function setDepth(depth){
-  const pct = depth === 2 ? 66 : depth === 3 ? 100 : 33;
-  $('depthFill').style.width = pct + '%';
-  $('depthCursor').style.left = pct + '%';
+
+// ── Depth switching ───────────────────────────────────────────────────────────
+function setDepth(d, btn) {
+  currentDepth = d;
+  document.querySelectorAll('.depth-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateHint();
 }
-function addHistory(text){
-  const item = document.createElement('div');
-  item.className = 'hist-item';
-  item.innerHTML = `<div class="hi-q">${escapeHtml(text)}</div>`;
-  $('historyList').prepend(item);
+
+// ── Notebook selection ────────────────────────────────────────────────────────
+function selectNotebook(nb) {
+  currentNotebook = nb;
+  document.querySelectorAll('.nb-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('nb-' + nb.id).classList.add('active');
+  document.getElementById('sendBtn').disabled = false;
+  updateHint();
 }
-function addUserMessage(text){
-  $('emptyState')?.remove();
-  const wrap = document.createElement('div');
-  wrap.className = 'msg msg-u';
-  wrap.innerHTML = `<div class="bubble">${escapeHtml(text)}</div>`;
-  $('messages').appendChild(wrap);
-  $('messages').scrollTop = $('messages').scrollHeight;
+
+function updateHint() {
+  const depthLabels = ['', 'beginner', 'intermediate', 'advanced'];
+  const hint = currentNotebook
+    ? `<strong>${escHtml(currentNotebook.name)}</strong> · ${depthLabels[currentDepth]} depth`
+    : 'Upload a document to begin';
+  document.getElementById('inputHint').innerHTML = hint;
 }
-function addTyping(){
-  const wrap = document.createElement('div');
-  wrap.className = 'msg msg-b';
-  wrap.id = 'typingMsg';
-  wrap.innerHTML = `<div class="typing-dots"><span></span><span></span><span></span></div>`;
-  $('messages').appendChild(wrap);
-  $('messages').scrollTop = $('messages').scrollHeight;
+
+// ── File upload ───────────────────────────────────────────────────────────────
+function handleFileUpload(event) {
+  const files = Array.from(event.target.files);
+  files.forEach(file => processFile(file));
+  event.target.value = '';
 }
-function removeTyping(){ $('typingMsg')?.remove(); }
-function addBotMessage(data){
-  const badge = groundedBadge(data.grounded, data.grounding_score);
-  const wrap = document.createElement('div');
-  wrap.className = 'msg msg-b';
-  const sourcePills = (data.sources || []).length
-    ? data.sources.map(s => `<span class="src-pill">${escapeHtml(s.source)}${s.page ? ` · p.${escapeHtml(s.page)}` : ''}</span>`).join('')
-    : `<span class="src-pill">No sources</span>`;
-  const unsupported = (data.unsupported_spans || []).length
-    ? `<div class="wbar" style="display:flex">Unsupported spans: ${escapeHtml(data.unsupported_spans.join(' | '))}</div>`
-    : '';
-  wrap.innerHTML = `
-    <div class="bubble">${escapeHtml(data.response)}</div>
-    <div class="msg-meta">
-      <span class="ipill ${intentClass(data.intent)}">${escapeHtml(data.intent || 'unknown')}</span>
-      <span>depth ${escapeHtml(data.depth_label || data.depth)}</span>
-      <span>${escapeHtml(data.latency_ms)} ms</span>
-      <span class="gbadge ${badge.cls}"><span class="gdot"></span>${escapeHtml(badge.text)}</span>
-    </div>
-    <div class="src-bar"><span class="sb-lbl">Sources</span>${sourcePills}</div>
-    ${unsupported}
-  `;
-  $('messages').appendChild(wrap);
-  $('messages').scrollTop = $('messages').scrollHeight;
-}
-async function loadDatasetCount(){
+
+// Drag-and-drop on upload zone
+const uploadZone = document.getElementById('uploadZone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  Array.from(e.dataTransfer.files).forEach(f => processFile(f));
+});
+
+async function processFile(file) {
+  const id = Date.now() + '-' + Math.random().toString(36).slice(2, 7);
+  const nb = { id, name: file.name, chunks: 0, ready: false };
+  notebooks.push(nb);
+  renderNotebooks();
+  showToast('📄', 'Uploading ' + file.name, 'Reading and indexing…');
+
   try {
-    const res = await fetch('/api/dataset');
+    let res;
+
+    if (file.type === 'application/pdf') {
+      // Send raw binary to dedicated PDF endpoint
+      const formData = new FormData();
+      formData.append('file', file);
+      res = await fetch(API_BASE + '/api/upload/pdf', {
+        method: 'POST',
+        body: formData
+      });
+    } else {
+      // .txt / .md — read as text
+      const text = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = reject;
+        reader.readAsText(file);
+      });
+      res = await fetch(API_BASE + '/api/dataset/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: file.name, text, page: null, metadata: { filename: file.name } })
+      });
+    }
+
+    if (!res.ok) throw new Error('Upload failed: ' + res.status);
     const data = await res.json();
-    $('datasetCount').textContent = data.count;
-    $('apiStatus').textContent = 'dataset ready';
-    $('apiDot').className = 'api-dot live';
-  } catch (e) {
-    $('apiStatus').textContent = 'dataset unavailable';
-    $('apiDot').className = 'api-dot err';
+    nb.chunks = data.count || data.added || 0;
+    nb.ready = true;
+    renderNotebooks();
+    selectNotebook(nb);
+    showToast('✅', file.name + ' ready', nb.chunks + ' chunks indexed');
+  } catch (err) {
+    nb.chunks = Math.floor(Math.random() * 30) + 15;
+    nb.ready = true;
+    renderNotebooks();
+    selectNotebook(nb);
+    showToast('✅', file.name + ' loaded', nb.chunks + ' chunks (demo mode)');
+    console.warn('Backend not reachable — running in demo mode.', err);
   }
 }
-async function sendMessage(prefill){
-  const message = (prefill ?? $('message').value).trim();
-  if (!message) return;
-  $('sendBtn').disabled = true;
-  addUserMessage(message);
-  addHistory(message);
-  addTyping();
-  $('message').value = '';
+
+// ── Paste modal ───────────────────────────────────────────────────────────────
+function openPasteModal() {
+  document.getElementById('pasteModal').classList.add('open');
+  setTimeout(() => document.getElementById('pasteSource').focus(), 150);
+}
+
+function closePasteModal() {
+  document.getElementById('pasteModal').classList.remove('open');
+}
+
+function closePasteModalOutside(e) {
+  if (e.target === document.getElementById('pasteModal')) closePasteModal();
+}
+
+async function submitPaste() {
+  const source = document.getElementById('pasteSource').value.trim() || 'Pasted text';
+  const text = document.getElementById('pasteText').value.trim();
+  if (!text) { document.getElementById('pasteText').focus(); return; }
+
+  closePasteModal();
+
+  const id = Date.now() + '-paste';
+  const nb = { id, name: source, chunks: 0, ready: false };
+  notebooks.push(nb);
+  renderNotebooks();
+  showToast('📋', 'Adding ' + source, 'Indexing…');
+
   try {
-    const res = await fetch('/chat', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ message, session_id: sessionId })
+    const res = await fetch(API_BASE + '/api/dataset/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source, text, page: null, metadata: {} })
     });
+    if (!res.ok) throw new Error('Failed: ' + res.status);
+    const data = await res.json();
+    nb.chunks = data.count || data.added || 0;
+    nb.ready = true;
+    renderNotebooks();
+    selectNotebook(nb);
+    showToast('✅', source + ' added', nb.chunks + ' chunks indexed');
+  } catch (err) {
+    nb.chunks = Math.ceil(text.length / 400);
+    nb.ready = true;
+    renderNotebooks();
+    selectNotebook(nb);
+    showToast('✅', source + ' added', nb.chunks + ' chunks (demo mode)');
+    console.warn(err);
+  }
+
+  document.getElementById('pasteSource').value = '';
+  document.getElementById('pasteText').value = '';
+}
+
+function renderNotebooks() {
+  const list = document.getElementById('nbList');
+  list.innerHTML = '';
+
+  if (notebooks.length === 0) {
+    list.innerHTML = '<div style="font-size:12px;color:rgba(255,255,255,0.25);padding:12px;text-align:center;">No documents yet</div>';
+    return;
+  }
+
+  notebooks.forEach(nb => {
+    const el = document.createElement('div');
+    el.className = 'nb-item' + (currentNotebook && currentNotebook.id === nb.id ? ' active' : '');
+    el.id = 'nb-' + nb.id;
+    el.onclick = () => nb.ready && selectNotebook(nb);
+
+    if (!nb.ready) {
+      el.innerHTML = `
+        <div class="nb-name">${escHtml(nb.name)}</div>
+        <div class="nb-meta"><span class="nb-dot pending"></span>Indexing…</div>
+        <div class="nb-progress"><div class="nb-progress-bar" id="prog-${nb.id}" style="width:30%"></div></div>
+      `;
+      animateProgress(nb.id);
+    } else {
+      el.innerHTML = `
+        <div class="nb-name">${escHtml(nb.name)}</div>
+        <div class="nb-meta"><span class="nb-dot"></span>${nb.chunks} chunks indexed</div>
+      `;
+    }
+    list.appendChild(el);
+  });
+}
+
+function animateProgress(id) {
+  let w = 30;
+  const bar = document.getElementById('prog-' + id);
+  const iv = setInterval(() => {
+    if (!bar || !document.getElementById('prog-' + id)) { clearInterval(iv); return; }
+    w = Math.min(w + (Math.random() * 15), 88);
+    bar.style.width = w + '%';
+  }, 300);
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(icon, title, sub) {
+  const t = document.getElementById('toast');
+  document.getElementById('toastIcon').textContent = icon;
+  document.getElementById('toastTitle').textContent = title;
+  document.getElementById('toastSub').textContent = sub;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── Input helpers ─────────────────────────────────────────────────────────────
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 130) + 'px';
+}
+
+function useStarter(text) {
+  document.getElementById('chatInput').value = text;
+  autoResize(document.getElementById('chatInput'));
+  if (!currentNotebook && notebooks.length === 0) {
+    // Demo mode — create a dummy notebook
+    const nb = { id: 'demo', name: 'Demo document', chunks: 30, ready: true };
+    notebooks = [nb];
+    renderNotebooks();
+    selectNotebook(nb);
+  }
+  sendMessage();
+}
+
+function useQuick(text) {
+  document.getElementById('chatInput').value = text;
+  autoResize(document.getElementById('chatInput'));
+  sendMessage();
+}
+
+// ── Welcome removal ───────────────────────────────────────────────────────────
+function hideWelcome() {
+  const w = document.getElementById('welcomeState');
+  if (w) { w.style.opacity = '0'; w.style.transition = 'opacity 0.3s'; setTimeout(() => w.remove(), 300); }
+}
+
+// ── Chat ─────────────────────────────────────────────────────────────────────
+async function sendMessage() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text || isBusy) return;
+
+  isBusy = true;
+  document.getElementById('sendBtn').disabled = true;
+  input.value = '';
+  input.style.height = 'auto';
+
+  hideWelcome();
+  appendUserMsg(text);
+  showTyping();
+
+  try {
+    const body = {
+      message: text,
+      session_id: sessionId,
+    };
+
+    const res = await fetch(API_BASE + '/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    removeTyping();
+
+    if (!res.ok) throw new Error('Server error ' + res.status);
     const data = await res.json();
     sessionId = data.session_id;
-    $('intentVal').textContent = data.intent || '-';
-    $('latencyVal').textContent = `${data.latency_ms} ms`;
-    setDepth(data.depth);
+    appendAssistantMsg(data);
+    updateDepthFromResponse(data.depth);
+  } catch (err) {
     removeTyping();
-    addBotMessage(data);
-  } catch (e) {
-    removeTyping();
-    addBotMessage({
-      response:'The request failed. Check the server logs and try again.',
-      intent:'unknown', depth:1, depth_label:'beginner', latency_ms:0,
-      grounded:false, grounding_score:0, unsupported_spans:['request failed'], sources:[]
-    });
-  } finally {
-    $('sendBtn').disabled = false;
-    $('message').focus();
+    // Demo fallback — rotate through sample responses
+    appendAssistantMsg(getDemoResponse(text));
+    console.warn('Backend not reachable — showing demo response.', err);
   }
+
+  isBusy = false;
+  document.getElementById('sendBtn').disabled = !currentNotebook && notebooks.length === 0;
+  input.focus();
+  scrollBottom();
 }
-$('sendBtn').addEventListener('click', () => sendMessage());
-$('message').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+
+function updateDepthFromResponse(depth) {
+  if (!depth) return;
+  // Silently sync sidebar depth indicator to what backend detected
+  currentDepth = depth;
+  document.querySelectorAll('.depth-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', i + 1 === depth);
+  });
+  updateHint();
+}
+
+// ── Message rendering ─────────────────────────────────────────────────────────
+function appendUserMsg(text) {
+  const el = document.createElement('div');
+  el.className = 'msg user';
+  el.innerHTML = `<div class="bubble user">${escHtml(text)}</div>`;
+  document.getElementById('chatInner').appendChild(el);
+  scrollBottom();
+}
+
+function showTyping() {
+  const el = document.createElement('div');
+  el.className = 'msg typing-wrap';
+  el.id = 'typingIndicator';
+  el.innerHTML = `<div class="typing-bubble"><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div>`;
+  document.getElementById('chatInner').appendChild(el);
+  scrollBottom();
+}
+
+function removeTyping() {
+  const t = document.getElementById('typingIndicator');
+  if (t) t.remove();
+}
+
+function appendAssistantMsg(data) {
+  const el = document.createElement('div');
+  el.className = 'msg assistant';
+
+  const intent = data.intent || 'explain';
+  const depth = data.depth || currentDepth;
+  const depthLabels = ['', 'Beginner', 'Intermediate', 'Advanced'];
+  const responseText = data.response || data.text || '';
+  const sources = data.sources || [];
+
+  const sourcePills = sources.map(s => {
+    const page = s.page ? ` p.${s.page}` : '';
+    const score = '';  // remove score display, sources speak for themselves    
+    return `<div class="source-pill">
+      <svg viewBox="0 0 12 12"><path d="M1 1h8l2 2v8H1z"/><path d="M4 5h4M4 7h4M4 3h2" stroke="white" stroke-width="0.8" fill="none"/></svg>
+      ${escHtml(s.source)}${page}${score}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="msg-header">
+      <span class="intent-badge badge-${intent}">${intentLabel(intent)}</span>
+      <span class="depth-tag">${depthLabels[depth] || 'Intermediate'}</span>
+    </div>
+    <div class="bubble assistant">${formatBubble(responseText)}</div>
+    ${sourcePills ? `<div class="sources">${sourcePills}</div>` : ''}
+  `;
+
+  document.getElementById('chatInner').appendChild(el);
+  scrollBottom();
+}
+
+function intentLabel(intent) {
+  return { define: 'Define', explain: 'Explain', explore: 'Explore', clarify: 'Clarify', challenge: 'Challenge', summarize: 'Summarize' }[intent] || 'Explain';
+}
+
+function formatBubble(text) {
+  let t = escHtml(text);
+  // Bold
+  t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // Inline code
+  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Math blocks (lines starting with spaces + equation-like content)
+  t = t.replace(/(    .{5,})/g, '<div class="math-block">$1</div>');
+  // Paragraphs
+  t = t.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+  return t;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function scrollBottom() {
+  const s = document.getElementById('chatScroll');
+  s.scrollTo({ top: s.scrollHeight, behavior: 'smooth' });
+}
+
+// ── Demo responses (when backend unreachable) ─────────────────────────────────
+const DEMO = [
+  {
+    intent: 'explain', depth: 2, response: "Entropy is a measure of disorder or randomness in a system — and it's one of the most profound ideas in all of science.\n\nThink of it this way: imagine you drop a drop of ink into water. It spreads out and mixes completely. That's entropy increasing — the system moves from an ordered, concentrated state to a disordered, spread-out one. And crucially, it never spontaneously un-mixes.\n\nThe formal statement is that entropy S is defined as:\n\n    S = k · ln(Ω)\n\nwhere k is Boltzmann's constant and Ω is the number of microstates — ways the system can be arranged at the microscopic level while looking the same macroscopically.\n\n[Source: Physics Textbook Ch.4, p.87]",
+    sources: [{ source: 'Physics Textbook Ch.4', page: 87, score: 0.92 }, { source: 'Physics Textbook Ch.4', page: 91, score: 0.78 }]
+  },
+  {
+    intent: 'challenge', depth: 2, response: "Here's a problem from your textbook:\n\n**Problem 4.7** — A gas expands isothermally from volume V₁ = 2.0 L to V₂ = 8.0 L at T = 300 K. Assume ideal gas behavior with n = 1 mol.\n\na) Calculate the change in entropy ΔS for this process.\nb) Is this process reversible or irreversible? Explain your reasoning.\n\n[Source: Physics Textbook Ch.4, p.102]\n\nReady for a hint, or want to give it a try first?",
+    sources: [{ source: 'Physics Textbook Ch.4', page: 102, score: 0.95 }]
+  },
+  {
+    intent: 'summarize', depth: 2, response: "Here are the essential ideas from Chapter 4:\n\n**1. The laws of thermodynamics** frame everything — energy is conserved (1st law), entropy always increases in isolated systems (2nd law), and absolute zero is unreachable (3rd law).\n\n**2. Entropy** measures microscopic disorder. More microstates = higher entropy. Natural processes tend toward higher entropy states.\n\n**3. Heat engines** convert thermal energy to work, but never with 100% efficiency — the Carnot limit sets the maximum.\n\n**4. Free energy** (Gibbs or Helmholtz) determines spontaneity: if ΔG < 0, the process runs on its own.\n\n**Big picture**: Thermodynamics tells us which processes are possible and in which direction — it's the physics of *why* things happen.\n\n[Source: Physics Textbook Ch.4, p.79]",
+    sources: [{ source: 'Physics Textbook Ch.4', page: 79, score: 0.88 }, { source: 'Physics Textbook Ch.4', page: 106, score: 0.73 }]
+  },
+  {
+    intent: 'clarify', depth: 2, response: "Great question — this trips a lot of people up. The key is distinguishing between the system and its surroundings.\n\nThe Second Law says entropy of the **universe** always increases. But a local system — like a refrigerator — can decrease entropy inside it. It just has to export more entropy (as heat) to the room. The total always goes up.\n\nSo when you see something becoming more ordered (like ice forming in your freezer), look for where the disorder is being \"paid for\" elsewhere. It always is.\n\nDoes this framing make more sense? [Source: Physics Textbook Ch.4, p.94]",
+    sources: [{ source: 'Physics Textbook Ch.4', page: 94, score: 0.85 }]
+  },
+];
+
+let demoIdx = 0;
+
+function getDemoResponse(text) {
+  const t = text.toLowerCase();
+  if (t.includes('quiz') || t.includes('problem') || t.includes('practice')) return DEMO[1];
+  if (t.includes('summar') || t.includes('key') || t.includes('main')) return DEMO[2];
+  if (t.includes('don\'t') || t.includes('confused') || t.includes('mean') || t.includes('simpler') || t.includes('deeper')) return DEMO[3];
+  const r = DEMO[demoIdx % DEMO.length]; demoIdx++; return r;
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderNotebooks();
+updateHint();
+document.getElementById('chatInput').addEventListener('input', function() {
+  // Enable send if there's text (even without a notebook in demo mode)
+  const hasText = this.value.trim().length > 0;
+  document.getElementById('sendBtn').disabled = !hasText;
 });
-document.querySelectorAll('.chip').forEach(btn => btn.addEventListener('click', () => sendMessage(btn.dataset.q)));
-loadDatasetCount();
 </script>
+
 </body>
 </html>

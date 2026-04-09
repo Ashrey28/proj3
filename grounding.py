@@ -88,6 +88,7 @@ class GroundedResponseEngine:
         return GroundedAnswer(answer=answer, grounded=True, grounding_score=1.0, unsupported_spans=[])
 
     async def answer(self, question: str, chunks: List[Dict[str, Any]], routed_prompt: str) -> GroundedAnswer:
+        print(f"DEBUG: USE_LOCAL={USE_LOCAL} client={self.client}")  # ← add this
         if USE_LOCAL or self.client is None:
             return self._local_answer(question, chunks)
 
@@ -131,5 +132,6 @@ class GroundedResponseEngine:
                 grounding_score=float(payload.get("grounding_score", 0.0)),
                 unsupported_spans=list(payload.get("unsupported_spans", [])),
             )
-        except Exception:
+        except Exception as e:
+            print(f"DEBUG grounding exception: {e}")
             return self._local_answer(question, chunks)

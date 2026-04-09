@@ -3,159 +3,293 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EduRAG Evaluation</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500;600&family=Figtree:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<title>LearnLens — Developer Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@300;400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500&display=swap" rel="stylesheet">
 <style>
-:root{--ink:#0d0f0e;--paper:#f5f0e8;--panel:#141714;--card:#1a1e1b;--edge:#252a26;--edge2:#2f3530;--amber:#f0a500;--teal:#2dd4a0;--rose:#f05c6e;--sky:#5ca8f0;--text:#e8ede9;--muted:#7a8c7d;--dim:#3a4440;--font-serif:'Instrument Serif', Georgia, serif;--font-mono:'JetBrains Mono', monospace;--font-body:'Figtree', sans-serif}
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0} body{background:var(--ink);color:var(--text);font-family:var(--font-body);line-height:1.6;min-height:100vh} body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");opacity:.028;pointer-events:none;z-index:9999}
-.app{display:grid;grid-template-rows:52px 1fr;min-height:100vh} nav{display:flex;align-items:center;padding:0 20px;background:var(--panel);border-bottom:1px solid var(--edge)} .nav-logo{font-family:var(--font-serif);font-style:italic;font-size:20px;color:var(--paper);margin-right:24px}.nav-logo b{font-style:normal;color:var(--amber)} .nav-tabs{display:flex;height:100%}.nav-tab{display:flex;align-items:center;padding:0 18px;font-size:12.5px;font-weight:500;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;position:relative;top:1px}.nav-tab:hover{color:var(--text)}.nav-tab.active{color:var(--text);border-bottom-color:var(--amber)}
-.main{padding:26px;display:grid;grid-template-columns:360px 1fr;gap:18px} .col{display:flex;flex-direction:column;gap:18px} .card{background:var(--card);border:1px solid var(--edge);border-radius:18px;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.12)}
-.h1{font-family:var(--font-serif);font-style:italic;font-size:30px;color:var(--paper);line-height:1.1;margin-bottom:8px}.sub{color:var(--muted);font-size:13px}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px} label{display:block;font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-bottom:7px} input,textarea{width:100%;background:var(--panel);border:1px solid var(--edge2);border-radius:12px;padding:12px 13px;color:var(--text);font:inherit;outline:none} input:focus,textarea:focus{border-color:rgba(240,165,0,.4);box-shadow:0 0 0 3px rgba(240,165,0,.06)} textarea{resize:vertical;min-height:180px}
-button{border:0;background:var(--amber);color:#111;padding:11px 16px;border-radius:10px;font-weight:700;cursor:pointer} button.alt{background:transparent;color:var(--text);border:1px solid var(--edge2)} button:disabled{opacity:.5;cursor:not-allowed}
-.metric-wrap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.metric{padding:14px;border-radius:14px;background:var(--panel);border:1px solid var(--edge)}.metric .k{font-family:var(--font-mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px}.metric .v{font-size:26px;font-weight:700;color:var(--paper);margin-top:6px}.metric .s{margin-top:6px;font-size:11px;color:var(--muted);font-family:var(--font-mono)}
-.status{font-family:var(--font-mono);font-size:11px;color:var(--muted)} .table-wrap{overflow:auto;border-radius:14px;border:1px solid var(--edge)} table{width:100%;border-collapse:collapse;min-width:920px} th,td{padding:12px 14px;border-bottom:1px solid var(--edge);vertical-align:top;text-align:left} th{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);background:var(--panel)} td{font-size:12.5px} tr:last-child td{border-bottom:0} .tag{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font-family:var(--font-mono);font-size:10px}.ok{background:rgba(45,212,160,.1);border:1px solid rgba(45,212,160,.25);color:var(--teal)}.bad{background:rgba(240,92,110,.1);border:1px solid rgba(240,92,110,.25);color:var(--rose)} pre{white-space:pre-wrap;word-break:break-word;font:inherit;color:inherit}
-@media (max-width: 1100px){.main{grid-template-columns:1fr}}
+:root{--ink:#0d0f0e;--panel:#141714;--card:#1a1e1b;--edge:#252a26;--edge2:#2f3530;--amber:#f0a500;--teal:#2dd4a0;--rose:#f05c6e;--sky:#5ca8f0;--text:#e8ede9;--muted:#7a8c7d;--font-serif:'Instrument Serif',Georgia,serif;--font-mono:'JetBrains Mono',monospace;--font-body:'DM Sans',sans-serif}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ink);color:var(--text);font-family:var(--font-body);line-height:1.6;min-height:100vh}
+nav{display:flex;align-items:center;padding:0 24px;height:52px;background:var(--panel);border-bottom:1px solid var(--edge);position:sticky;top:0;z-index:10}
+.nav-logo{font-family:var(--font-serif);font-style:italic;font-size:20px;color:#f5f0e8;margin-right:28px;text-decoration:none}
+.nav-logo b{font-style:normal;color:var(--amber)}
+.nav-tabs{display:flex;height:100%}
+.nav-tab{display:flex;align-items:center;padding:0 18px;font-size:13px;font-weight:500;color:var(--muted);text-decoration:none;border-bottom:2px solid transparent;position:relative;top:1px;transition:color .15s}
+.nav-tab:hover{color:var(--text)}.nav-tab.active{color:var(--text);border-bottom-color:var(--amber)}
+.nav-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.health-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.health-label{font-family:var(--font-mono);font-size:11px;color:var(--muted)}
+.main{padding:24px;display:grid;grid-template-columns:340px 1fr;gap:18px;max-width:1400px;margin:0 auto}
+.col{display:flex;flex-direction:column;gap:18px}
+.card{background:var(--card);border:1px solid var(--edge);border-radius:16px;padding:20px}
+.card-title{font-family:var(--font-serif);font-style:italic;font-size:22px;color:#f5f0e8;margin-bottom:4px}
+.card-sub{color:var(--muted);font-size:13px;margin-bottom:16px}
+label{display:block;font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+input,textarea,select{width:100%;background:var(--panel);border:1px solid var(--edge2);border-radius:10px;padding:10px 12px;color:var(--text);font-family:var(--font-body);font-size:13.5px;outline:none;transition:border-color .15s}
+input:focus,textarea:focus{border-color:rgba(240,165,0,.4);box-shadow:0 0 0 3px rgba(240,165,0,.06)}
+textarea{resize:vertical;min-height:140px}
+.field{margin-bottom:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{border:none;background:var(--amber);color:#111;padding:9px 16px;border-radius:9px;font-weight:600;font-size:13px;font-family:var(--font-body);cursor:pointer;transition:opacity .15s;white-space:nowrap}
+button:hover{opacity:.88}button:disabled{opacity:.4;cursor:not-allowed}
+button.alt{background:transparent;color:var(--text);border:1px solid var(--edge2);font-weight:400}
+button.alt:hover{background:var(--edge);opacity:1}
+button.danger{background:var(--rose);color:white}
+.status{font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-top:10px;min-height:16px}
+.metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+.metric{background:var(--panel);border:1px solid var(--edge);border-radius:12px;padding:14px}
+.metric-key{font-family:var(--font-mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.metric-val{font-size:26px;font-weight:600;color:#f5f0e8}
+.metric-sub{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:4px}
+.table-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--edge)}
+table{width:100%;border-collapse:collapse;min-width:860px}
+th,td{padding:10px 14px;border-bottom:1px solid var(--edge);text-align:left;vertical-align:top}
+th{font-family:var(--font-mono);font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);background:var(--panel);white-space:nowrap}
+td{font-size:12.5px}tr:last-child td{border-bottom:none}
+pre{white-space:pre-wrap;word-break:break-word;font-family:var(--font-mono);font-size:11px;color:var(--text)}
+.tag{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-family:var(--font-mono);font-size:10px;white-space:nowrap}
+.ok{background:rgba(45,212,160,.1);border:1px solid rgba(45,212,160,.25);color:var(--teal)}
+.bad{background:rgba(240,92,110,.1);border:1px solid rgba(240,92,110,.25);color:var(--rose)}
+.info{background:rgba(92,168,240,.1);border:1px solid rgba(92,168,240,.25);color:var(--sky)}
+.chunk-list{display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto}
+.chunk-item{background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:10px 12px}
+.chunk-meta{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-bottom:4px}
+.chunk-text{font-size:12px;color:var(--text);line-height:1.5}
+.log-list{display:flex;flex-direction:column;gap:6px;max-height:260px;overflow-y:auto}
+.log-item{background:var(--panel);border:1px solid var(--edge);border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:10px;font-size:12px}
+.log-time{font-family:var(--font-mono);font-size:10px;color:var(--muted);flex-shrink:0}
+.log-q{color:var(--text);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-ms{font-family:var(--font-mono);font-size:10px;color:var(--muted);flex-shrink:0}
+@media(max-width:1100px){.main{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
-<div class="app">
-  <nav>
-    <div class="nav-logo">Edu<b>RAG</b></div>
-    <div class="nav-tabs">
-      <a class="nav-tab" href="/">Chat</a>
-      <a class="nav-tab active" href="/developer">Evaluation</a>
+<nav>
+  <a class="nav-logo" href="/">Learn<b>Lens</b></a>
+  <div class="nav-tabs">
+    <a class="nav-tab" href="/">Chat</a>
+    <a class="nav-tab active" href="/developer">Developer</a>
+  </div>
+  <div class="nav-right">
+    <div class="health-dot" id="healthDot"></div>
+    <span class="health-label" id="healthLabel">checking…</span>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="col">
+    <div class="card">
+      <div class="card-title">Ingest text</div>
+      <div class="card-sub">Add content directly to the knowledge base.</div>
+      <div class="field"><label>Source name</label><input id="source" value="manual_note.txt"></div>
+      <div class="grid2">
+        <div class="field"><label>Page</label><input id="page" value="1" type="number"></div>
+        <div class="field"><label>Dataset size</label><input id="datasetStatus" value="loading…" readonly></div>
+      </div>
+      <div class="field"><label>Text content</label><textarea id="text" placeholder="Paste content here…"></textarea></div>
+      <div class="row">
+        <button id="addBtn">Add to dataset</button>
+        <button id="reloadBtn" class="alt">Reload</button>
+        <button id="clearBtn" class="danger" style="margin-left:auto">Clear all</button>
+      </div>
+      <div id="ingestStatus" class="status">Idle.</div>
     </div>
-  </nav>
-  <div class="main">
-    <div class="col">
-      <div class="card">
-        <div class="h1">Evaluation Console</div>
-        <div class="sub">Load more text into the dataset, reload the store, and run the saved evaluation set from one place.</div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:12px">
+        <div><div class="card-title" style="font-size:18px">Dataset preview</div><div style="font-size:13px;color:var(--muted)">First 10 chunks in the knowledge base.</div></div>
+        <button class="alt" onclick="refreshDataset()">Refresh</button>
       </div>
-      <div class="card">
-        <label>Source name</label>
-        <input id="source" value="manual_note.txt" />
-        <div class="grid" style="margin-top:12px">
-          <div>
-            <label>Page</label>
-            <input id="page" value="1" />
-          </div>
-          <div>
-            <label>Dataset status</label>
-            <input id="datasetStatus" value="ready" readonly />
-          </div>
+      <div class="chunk-list" id="chunkList"><div style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">Loading…</div></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:12px">
+        <div><div class="card-title" style="font-size:18px">Query log</div><div style="font-size:13px;color:var(--muted)">Test queries sent from this page.</div></div>
+        <div class="row" style="gap:8px">
+          <button class="alt" onclick="sendTestQuery()">Test query</button>
+          <button class="alt" onclick="clearLog()">Clear</button>
         </div>
-        <div style="margin-top:12px">
-          <label>Text</label>
-          <textarea id="text" placeholder="Paste dataset text here..."></textarea>
+      </div>
+      <div class="log-list" id="logList"><div style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">No queries yet.</div></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="card">
+      <div class="row" style="justify-content:space-between;margin-bottom:16px">
+        <div>
+          <div class="card-title">Evaluation console</div>
+          <div class="card-sub" style="margin-bottom:0">Run the saved evaluation set against the current knowledge base.</div>
         </div>
-        <div class="row" style="margin-top:14px">
-          <button id="addBtn">Add to dataset</button>
-          <button id="reloadBtn" class="alt">Reload dataset</button>
-        </div>
-        <div id="ingestStatus" class="status" style="margin-top:12px">Idle.</div>
+        <button id="evalBtn">Run eval</button>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="metric-key">Total questions</div><div class="metric-val" id="metricTotal">—</div><div class="metric-sub" id="metricTotalSub">not run yet</div></div>
+        <div class="metric"><div class="metric-key">Answer accuracy</div><div class="metric-val" id="metricAnswer">—</div><div class="metric-sub" id="metricAnswerSub">—</div></div>
+        <div class="metric"><div class="metric-key">Source accuracy</div><div class="metric-val" id="metricSource">—</div><div class="metric-sub" id="metricSourceSub">—</div></div>
+        <div class="metric"><div class="metric-key">Grounded rate</div><div class="metric-val" id="metricGrounded">—</div><div class="metric-sub" id="metricGroundedSub">—</div></div>
+      </div>
+      <div id="evalStatus" class="status">Idle.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="font-size:18px;margin-bottom:4px">Per-question results</div>
+      <div class="card-sub">Expected vs model output, F1, source hit, and grounding per question.</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Question</th><th>Expected</th><th>Model answer</th><th>F1</th><th>Answer</th><th>Source</th><th>Grounded</th></tr></thead>
+          <tbody id="evalResults"></tbody>
+        </table>
       </div>
     </div>
-    <div class="col">
-      <div class="card">
-        <div class="row" style="justify-content:space-between;margin-bottom:14px">
-          <div>
-            <div class="h1" style="font-size:26px;margin-bottom:4px">Run evaluation</div>
-            <div class="sub">Compare current outputs against the known question set.</div>
-                      </div>
-          <button id="evalBtn">Run</button>
-        </div>
-        <div class="metric-wrap">
-          <div class="metric"><div class="k">Total</div><div id="total" class="v">-</div><div class="s" id="totalSub">questions</div></div>
-          <div class="metric"><div class="k">Answer accuracy</div><div id="answerAccuracy" class="v">-</div><div class="s" id="answerAccuracySub">-</div></div>
-          <div class="metric"><div class="k">Source accuracy</div><div id="sourceAccuracy" class="v">-</div><div class="s" id="sourceAccuracySub">-</div></div>
-          <div class="metric"><div class="k">Grounded rate</div><div id="groundedRate" class="v">-</div><div class="s" id="groundedRateSub">-</div></div>
-        </div>
-        <div id="evalStatus" class="status" style="margin-top:12px">Idle.</div>
-      </div>
-      <div class="card">
-        <div class="row" style="justify-content:space-between;margin-bottom:12px">
-          <div>
-            <div class="h1" style="font-size:26px;margin-bottom:4px">Per-question results</div>
-            <div class="sub">Each row shows the expected answer, model output, source hit, and grounding result.</div>
-          </div>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Question</th><th>Expected</th><th>Model answer</th><th>F1</th><th>Answer</th><th>Source</th><th>Grounded</th>
-              </tr>
-            </thead>
-            <tbody id="results"></tbody>
-          </table>
-        </div>
+
+    <div class="card">
+      <div class="card-title" style="font-size:18px;margin-bottom:4px">System</div>
+      <div class="card-sub">Live health and configuration.</div>
+      <div class="metrics">
+        <div class="metric"><div class="metric-key">Documents</div><div class="metric-val" id="sysDocCount">—</div><div class="metric-sub">chunks in KB</div></div>
+        <div class="metric"><div class="metric-key">Status</div><div class="metric-val" style="font-size:18px" id="sysStatus">—</div><div class="metric-sub" id="sysStatusSub">—</div></div>
       </div>
     </div>
   </div>
 </div>
+
 <script>
-const $ = (id) => document.getElementById(id);
-function badge(value){return `<span class="tag ${value ? 'ok':'bad'}">${value ? 'yes':'no'}</span>`;}
-async function refreshDataset(){
-  try {
-    const res = await fetch('/api/dataset');
-    const data = await res.json();
-    $('datasetStatus').value = `ready · ${data.count} chunks`;
-  } catch (e) {
-    $('datasetStatus').value = 'unavailable';
+const $ = id => document.getElementById(id);
+let queryLog = [];
+
+function badge(val){ return `<span class="tag ${val?'ok':'bad'}">${val?'yes':'no'}</span>`; }
+function escHtml(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+async function checkHealth(){
+  try{
+    const data = await fetch('/health').then(r=>r.json());
+    $('healthDot').style.background='#2dd4a0';
+    $('healthLabel').textContent=`online · ${data.documents} chunks`;
+    $('sysDocCount').textContent=data.documents;
+    $('sysStatus').textContent='Online';
+    $('sysStatusSub').textContent=`${data.documents} chunks indexed`;
+  }catch(e){
+    $('healthDot').style.background='#f05c6e';
+    $('healthLabel').textContent='offline';
+    $('sysStatus').textContent='Offline';
+    $('sysStatusSub').textContent=e.message;
   }
 }
+
+async function refreshDataset(){
+  try{
+    const data = await fetch('/api/dataset').then(r=>r.json());
+    $('datasetStatus').value=`${data.count} chunks`;
+    $('sysDocCount').textContent=data.count;
+    const list=$('chunkList');
+    if(!data.preview||data.preview.length===0){
+      list.innerHTML='<div style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">No documents yet.</div>';
+      return;
+    }
+    list.innerHTML=data.preview.map(d=>`
+      <div class="chunk-item">
+        <div class="chunk-meta">${escHtml(d.source)}${d.page?' · p.'+d.page:''}</div>
+        <div class="chunk-text">${escHtml(d.text_preview)}…</div>
+      </div>`).join('');
+  }catch(e){ $('datasetStatus').value='unavailable'; }
+}
+
 async function addDocument(){
-  $('ingestStatus').textContent = 'Adding...';
-  const res = await fetch('/api/dataset/add', {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ source:$('source').value.trim(), text:$('text').value.trim(), page: parseInt($('page').value,10) })
-  });
-  const data = await res.json();
-  $('ingestStatus').textContent = `Added. Dataset count: ${data.count}`;
-  refreshDataset();
+  const text=$('text').value.trim();
+  if(!text){$('ingestStatus').textContent='Error: text is required.';return;}
+  $('ingestStatus').textContent='Adding…';$('addBtn').disabled=true;
+  try{
+    const data=await fetch('/api/dataset/add',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({source:$('source').value.trim(),text,page:parseInt($('page').value,10)||null})
+    }).then(r=>r.json());
+    $('ingestStatus').textContent=`Done. Dataset now has ${data.count} chunks.`;
+    $('text').value='';refreshDataset();
+  }catch(e){$('ingestStatus').textContent='Error: '+e.message;}
+  $('addBtn').disabled=false;
 }
+
 async function reloadDataset(){
-  $('ingestStatus').textContent = 'Reloading...';
-  const res = await fetch('/api/dataset/reload', { method:'POST' });
-  const data = await res.json();
-  $('ingestStatus').textContent = `Reloaded. Dataset count: ${data.count}`;
-  refreshDataset();
+  $('ingestStatus').textContent='Reloading…';$('reloadBtn').disabled=true;
+  try{
+    const data=await fetch('/api/dataset/reload',{method:'POST'}).then(r=>r.json());
+    $('ingestStatus').textContent=`Reloaded. ${data.count} chunks.`;refreshDataset();
+  }catch(e){$('ingestStatus').textContent='Error: '+e.message;}
+  $('reloadBtn').disabled=false;
 }
+
+async function clearDataset(){
+  if(!confirm('Clear the entire knowledge base? This cannot be undone.'))return;
+  $('ingestStatus').textContent='Clearing…';
+  try{
+    const data=await fetch('/api/dataset/replace',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({documents:[]})}).then(r=>r.json());
+    $('ingestStatus').textContent=`Cleared. ${data.count} chunks remaining.`;refreshDataset();
+  }catch(e){$('ingestStatus').textContent='Error: '+e.message;}
+}
+
 async function runEvaluation(){
-  $('evalStatus').textContent = 'Running...';
-  $('results').innerHTML = '';
-  const res = await fetch('/api/evaluate', { method:'POST' });
-  const data = await res.json();
-  $('evalStatus').textContent = 'Finished.';
-  $('total').textContent = data.summary.total;
-  $('totalSub').textContent = `${data.summary.total} total questions`;
-  $('answerAccuracy').textContent = `${data.summary.answer_accuracy_pct}%`;
-  $('answerAccuracySub').textContent = `${data.summary.answer_correct_count}/${data.summary.total} correct · raw ${data.summary.answer_accuracy}`;
-  $('sourceAccuracy').textContent = `${data.summary.source_accuracy_pct}%`;
-  $('sourceAccuracySub').textContent = `${data.summary.source_correct_count}/${data.summary.total} source hits · raw ${data.summary.source_accuracy}`;
-  $('groundedRate').textContent = `${data.summary.grounded_rate_pct}%`;
-  $('groundedRateSub').textContent = `${data.summary.grounded_count}/${data.summary.total} grounded · raw ${data.summary.grounded_rate}`;
-  data.results.forEach(item => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${item.question}</td>
-      <td>${item.expected_answer}</td>
-      <td><pre>${item.model_answer}</pre></td>
-      <td>${item.token_f1}</td>
-      <td>${badge(item.answer_correct)}</td>
-      <td>${badge(item.source_correct)}</td>
-      <td>${badge(item.grounded)}</td>
-    `;
-    $('results').appendChild(tr);
-  });
+  $('evalStatus').textContent='Running… this may take a moment.';
+  $('evalBtn').disabled=true;$('evalResults').innerHTML='';
+  try{
+    const res=await fetch('/api/evaluate',{method:'POST'});
+    if(!res.ok){const e=await res.json();$('evalStatus').textContent='Error: '+(e.detail||res.status);return;}
+    const data=await res.json();const s=data.summary;
+    $('metricTotal').textContent=s.total;$('metricTotalSub').textContent=`${s.total} questions`;
+    $('metricAnswer').textContent=s.answer_accuracy_pct+'%';$('metricAnswerSub').textContent=`${s.answer_correct_count}/${s.total} correct`;
+    $('metricSource').textContent=s.source_accuracy_pct+'%';$('metricSourceSub').textContent=`${s.source_correct_count}/${s.total} hits`;
+    $('metricGrounded').textContent=s.grounded_rate_pct+'%';$('metricGroundedSub').textContent=`${s.grounded_count}/${s.total} grounded`;
+    data.results.forEach(item=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>${escHtml(item.question)}</td><td style="max-width:150px">${escHtml(item.expected_answer)}</td>
+        <td style="max-width:200px"><pre>${escHtml(item.model_answer)}</pre></td>
+        <td>${item.token_f1}</td><td>${badge(item.answer_correct)}</td><td>${badge(item.source_correct)}</td><td>${badge(item.grounded)}</td>`;
+      $('evalResults').appendChild(tr);
+    });
+    $('evalStatus').textContent=`Finished at ${new Date().toLocaleTimeString()}.`;
+  }catch(e){$('evalStatus').textContent='Error: '+e.message;}
+  $('evalBtn').disabled=false;
 }
-$('addBtn').addEventListener('click', addDocument);
-$('reloadBtn').addEventListener('click', reloadDataset);
-$('evalBtn').addEventListener('click', runEvaluation);
-refreshDataset();
+
+async function sendTestQuery(){
+  const q=prompt('Enter a test question:');
+  if(!q)return;
+  const start=Date.now();
+  try{
+    const data=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({message:q})}).then(r=>r.json());
+    addLogItem(q,data.intent,data.latency_ms,true);
+  }catch(e){addLogItem(q,'error',Date.now()-start,false);}
+}
+
+function addLogItem(question,intent,ms,ok){
+  queryLog.unshift({question,intent,ms,ok,time:new Date().toLocaleTimeString()});
+  renderLog();
+}
+
+function renderLog(){
+  const list=$('logList');
+  if(queryLog.length===0){list.innerHTML='<div style="font-family:var(--font-mono);font-size:11px;color:var(--muted)">No queries yet.</div>';return;}
+  list.innerHTML=queryLog.slice(0,20).map(q=>`
+    <div class="log-item">
+      <span class="log-time">${q.time}</span>
+      <span><span class="tag info">${escHtml(q.intent)}</span></span>
+      <span class="log-q">${escHtml(q.question)}</span>
+      <span class="log-ms">${q.ms}ms</span>
+      <span>${badge(q.ok)}</span>
+    </div>`).join('');
+}
+
+function clearLog(){queryLog=[];renderLog();}
+
+$('addBtn').addEventListener('click',addDocument);
+$('reloadBtn').addEventListener('click',reloadDataset);
+$('clearBtn').addEventListener('click',clearDataset);
+$('evalBtn').addEventListener('click',runEvaluation);
+checkHealth();refreshDataset();
+setInterval(checkHealth,15000);
 </script>
 </body>
 </html>
