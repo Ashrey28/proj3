@@ -19,6 +19,15 @@ import fitz  # pip install pymupdf
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from data_preprocessor import DataPreprocessor
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # abspath is the fix
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+DATA_DIR = os.path.join(BASE_DIR, "data")
+
+
+app = FastAPI(title="EduRAG")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
 @app.post("/api/upload/pdf")
 async def upload_pdf(file: UploadFile = File(...)):
     contents = await file.read()
@@ -45,13 +54,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-BASE_DIR = os.path.dirname(__file__)
-STATIC_DIR = os.path.join(BASE_DIR, "static")
-DATA_DIR = os.path.join(BASE_DIR, "data")
-
-app = FastAPI(title="EduRAG")
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 kb = VectorKnowledgeBase()
 evaluation_store = EvaluationStore()
