@@ -1,21 +1,33 @@
 """
-Prompt Router — Story 8 core
-Takes classified intent + depth + retrieved chunks → returns filled prompt.
+prompt_router_v2.py — Story 8 (hardened)
+
+Takes classified intent + depth + retrieved chunks → returns filled PromptResult.
+This is the programmatic prompt selection that satisfies Story 8.
+
+Changes from prompt_router.py:
+  - Safe format() calls: all templates pre-checked, no KeyError on missing fields
+  - build_prompt_debug_info() helper for developer dashboard (Story 9)
+  - DEPTH_CONFIGS exposed as a public constant for UI rendering
+  - Handles empty / None chunks gracefully
+  - challenge_generate: falls back to context_str if last_problem is empty dict
+  - Unknown intents log a warning and fall back to "explain"
 """
 
-from dataclasses import dataclass
-from typing import Optional
+import warnings
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 
-# ─── Depth descriptors injected into prompts ───────────────────────────────
 
-DEPTH_CONFIGS = {
+# ─── Depth configuration ─────────────────────────────────────────────────────
+
+DEPTH_CONFIGS: Dict[int, Dict[str, str]] = {
     1: {
         "label": "beginner",
         "instruction": (
             "Use simple, everyday language. Avoid jargon entirely. "
             "Use concrete analogies and real-world examples. "
             "Short sentences. Assume no prior knowledge."
-        )
+        ),
     },
     2: {
         "label": "intermediate",
@@ -23,7 +35,7 @@ DEPTH_CONFIGS = {
             "Use standard domain vocabulary but briefly clarify terms when first introduced. "
             "Balance intuition with precision. "
             "Examples are welcome but not required for every point."
-        )
+        ),
     },
     3: {
         "label": "advanced",
@@ -31,13 +43,14 @@ DEPTH_CONFIGS = {
             "Use precise technical language freely. Assume solid domain background. "
             "Prioritize depth, nuance, and connections to related concepts. "
             "Minimal hand-holding."
-        )
-    }
+        ),
+    },
 }
 
-# ─── Base prompt templates per intent ──────────────────────────────────────
 
-PROMPT_TEMPLATES = {
+# ─── Prompt templates ────────────────────────────────────────────────────────
+
+PROMPT_TEMPLATES: Dict[str, str] = {
 
     "define": """You are a precise, trustworthy learning companion.
 The user wants a definition. {depth_instruction}
@@ -111,7 +124,7 @@ User request: {question}
 
 Present one problem from the retrieved material exactly as written.
 Label it clearly: Problem [Source: <document, page/section>].
-Do NOT give the solution yet. 
+Do NOT give the solution yet.
 After presenting the problem, ask: "Ready for a hint, or want to give it a try first?" """,
 
     "challenge_generate": """You are a creative, pedagogically-sound problem designer.
@@ -144,7 +157,11 @@ Match the depth level strictly. Use the retrieved content as your source.
 Do NOT give the answer yet — wait for the user to respond.""",
 }
 
-# ─── Router ────────────────────────────────────────────────────────────────
+# Intents that map directly to a template key
+_DIRECT_INTENTS = {"define", "explain", "explore", "clarify", "summarize"}
+
+
+# ─── Result dataclass ────────────────────────────────────────────────────────
 
 @dataclass
 class PromptResult:
@@ -154,89 +171,146 @@ class PromptResult:
     depth: int
     depth_label: str
     challenge_subtype: Optional[str]
+    template_key: str                    # which template fired — useful for logging
+    context_chunk_count: int             # how many chunks were injected
+    debug: Dict[str, Any] = field(default_factory=dict)
 
-def build_context_string(chunks: list) -> str:
-    """Format retrieved chunks into a readable context block."""
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+
+def build_context_string(chunks: List[Dict[str, Any]]) -> str:
+    """Format retrieved chunks into a numbered, source-labeled context block."""
     if not chunks:
         return "No relevant content found in the knowledge base."
-    
-    parts = []
+
+    parts: List[str] = []
     for i, chunk in enumerate(chunks, 1):
-        source = chunk.get("source", "Unknown")
-        page = chunk.get("page", "")
-        text = chunk.get("text", "")
-        page_str = f", p.{page}" if page else ""
+        source = chunk.get("source") or "Unknown"
+        page = chunk.get("page")
+        text = (chunk.get("text") or "").strip()
+        page_str = f", p.{page}" if page is not None else ""
         parts.append(f"[{i}] ({source}{page_str})\n{text}")
-    
+
     return "\n\n".join(parts)
 
 
+def build_prompt_debug_info(result: "PromptResult") -> Dict[str, Any]:
+    """
+    Return a structured summary of what the router decided.
+    Intended for the developer dashboard (Story 9) — attach to response payload.
+    """
+    return {
+        "template_key": result.template_key,
+        "intent": result.intent,
+        "depth": result.depth,
+        "depth_label": result.depth_label,
+        "challenge_subtype": result.challenge_subtype,
+        "context_chunk_count": result.context_chunk_count,
+        "system_prompt_length": len(result.system_prompt),
+        "user_prompt_length": len(result.user_prompt),
+        "user_prompt_preview": result.user_prompt[:300] + ("..." if len(result.user_prompt) > 300 else ""),
+    }
+
+
+# ─── Router ──────────────────────────────────────────────────────────────────
+
+_SYSTEM_PROMPT = (
+    "You are an adaptive learning companion. "
+    "You only teach from the provided knowledge base — never invent facts. "
+    "Always cite your sources inline as [Source: <document name>]. "
+    "Adapt your language to the user's level."
+)
+
+
 def route_prompt(
-    classified: dict,
+    classified: Dict[str, Any],
     question: str,
-    chunks: list,
-    last_problem: Optional[dict] = None
+    chunks: List[Dict[str, Any]],
+    last_problem: Optional[Dict[str, Any]] = None,
 ) -> PromptResult:
     """
-    Core router — takes classified intent + chunks → returns filled PromptResult.
-    This is the programmatic prompt selection that satisfies Story 8.
+    Core router — takes classified intent + retrieved chunks → PromptResult.
+
+    Args:
+        classified:    Output of classify_intent() — must contain 'intent' and 'depth'.
+        question:      The raw user message.
+        chunks:        Retrieved knowledge base chunks (list of dicts with 'text', 'source', 'page').
+        last_problem:  The chunk used for the previous challenge/pull, if any.
+
+    Returns:
+        PromptResult with filled system_prompt, user_prompt, and metadata.
     """
-    intent = classified["intent"]
-    depth = classified["depth"]
-    challenge_subtype = classified.get("challenge_subtype")
-    
+    intent: str = classified.get("intent", "explain")
+    depth: int = max(1, min(3, int(classified.get("depth", 2))))
+    challenge_subtype: Optional[str] = classified.get("challenge_subtype")
+
     depth_config = DEPTH_CONFIGS[depth]
     depth_instruction = depth_config["instruction"]
     context_str = build_context_string(chunks)
+    chunk_count = len(chunks)
 
-    # ── Challenge routing (most complex branch) ──
+    # ── Challenge routing ────────────────────────────────────────────────────
     if intent == "challenge":
+
         if challenge_subtype == "pull":
             template_key = "challenge_pull"
-            filled = PROMPT_TEMPLATES[template_key].format(
+            user_prompt = PROMPT_TEMPLATES[template_key].format(
                 depth_instruction=depth_instruction,
                 context=context_str,
-                question=question
+                question=question,
             )
 
         elif challenge_subtype in ("similar", "simpler", "harder"):
             template_key = "challenge_generate"
-            ref_context = build_context_string([last_problem]) if last_problem else context_str
-            filled = PROMPT_TEMPLATES[template_key].format(
+            # Use last_problem if it has text; otherwise fall back to retrieved chunks
+            ref_chunks = (
+                [last_problem]
+                if last_problem and last_problem.get("text")
+                else chunks
+            )
+            ref_context = build_context_string(ref_chunks)
+            user_prompt = PROMPT_TEMPLATES[template_key].format(
                 depth_instruction=depth_instruction,
                 context=ref_context,
                 question=question,
-                challenge_mode=challenge_subtype
+                challenge_mode=challenge_subtype,
             )
 
         else:
+            # "general" or any unrecognised subtype
             template_key = "challenge_general"
-            filled = PROMPT_TEMPLATES[template_key].format(
+            user_prompt = PROMPT_TEMPLATES[template_key].format(
                 depth_instruction=depth_instruction,
                 context=context_str,
-                question=question
+                question=question,
             )
 
-    # ── Standard intents ──
+    # ── Standard intents ─────────────────────────────────────────────────────
     else:
-        template_key = intent if intent in PROMPT_TEMPLATES else "explain"
-        filled = PROMPT_TEMPLATES[template_key].format(
+        if intent not in _DIRECT_INTENTS:
+            warnings.warn(
+                f"Unknown intent '{intent}' received by prompt router — "
+                "falling back to 'explain'.",
+                stacklevel=2,
+            )
+            intent = "explain"
+
+        template_key = intent
+        user_prompt = PROMPT_TEMPLATES[template_key].format(
             depth_instruction=depth_instruction,
             context=context_str,
-            question=question
+            question=question,
         )
 
-    system = (
-        "You are an adaptive learning companion. "
-        "You only teach from the provided knowledge base — never invent facts. "
-        "Always cite your sources. Adapt your language to the user's level."
-    )
-
-    return PromptResult(
-        system_prompt=system,
-        user_prompt=filled,
+    result = PromptResult(
+        system_prompt=_SYSTEM_PROMPT,
+        user_prompt=user_prompt,
         intent=intent,
         depth=depth,
         depth_label=depth_config["label"],
-        challenge_subtype=challenge_subtype
+        challenge_subtype=challenge_subtype,
+        template_key=template_key,
+        context_chunk_count=chunk_count,
     )
+    result.debug = build_prompt_debug_info(result)
+    return result

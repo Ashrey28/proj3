@@ -13,7 +13,37 @@ from evaluation import source_hit, summarize_results, token_f1
 from grounding import GroundedResponseEngine
 from intent_classifier_v2 import apply_session_depth, classify_intent
 from prompt_router import route_prompt
-from rag import EvaluationStore, SimpleKnowledgeBase
+from vector_kb import VectorKnowledgeBase
+from rag import EvaluationStore
+import fitz  # pip install pymupdf
+from fastapi import FastAPI, HTTPException, UploadFile, File
+from data_preprocessor import DataPreprocessor
+
+@app.post("/api/upload/pdf")
+async def upload_pdf(file: UploadFile = File(...)):
+    contents = await file.read()
+    doc = fitz.open(stream=contents, filetype="pdf")
+    all_chunks = []
+    for i, page in enumerate(doc):
+        text = page.get_text()
+        if text.strip():
+            all_chunks.append({
+                "source": file.filename,
+                "text": text,
+                "page": i + 1,
+                "metadata": {}
+            })
+    added = kb.add_documents(all_chunks)
+    return {"added": added, "count": len(kb.documents)}
+
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # tighten this in production
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 BASE_DIR = os.path.dirname(__file__)
@@ -23,7 +53,7 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 app = FastAPI(title="EduRAG")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-kb = SimpleKnowledgeBase()
+kb = VectorKnowledgeBase()
 evaluation_store = EvaluationStore()
 grounded_engine = GroundedResponseEngine()
 sessions: Dict[str, Dict[str, Any]] = {}
@@ -91,6 +121,34 @@ async def add_document(request: IngestRequest) -> Dict[str, Any]:
         ]
     )
     return {"added": added, "count": len(kb.documents)}
+
+@app.post("/api/upload/pdf")
+async def upload_pdf(file: UploadFile = File(...)) -> Dict[str, Any]:
+    import fitz  # pip install pymupdf
+    contents = await file.read()
+    try:
+        doc = fitz.open(stream=contents, filetype="pdf")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not parse PDF.")
+    
+    raw_pages = []
+    for i, page in enumerate(doc):
+        text = page.get_text()
+        if text.strip():
+            raw_pages.append({
+                "source": file.filename,
+                "text": text,
+                "page": i + 1,
+                "metadata": {}
+            })
+    
+    if not raw_pages:
+        raise HTTPException(status_code=422, detail="No extractable text found. The PDF may be scanned.")
+    
+    preprocessor = DataPreprocessor()
+    chunks = preprocessor.preprocess_batch(raw_pages)
+    added = kb.add_documents(chunks)
+    return {"added": added, "count": len(kb.documents), "pages": len(raw_pages)}
 
 
 @app.post("/chat")

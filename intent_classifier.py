@@ -13,10 +13,10 @@ from openai import AsyncOpenAI
 
 USE_LOCAL = os.environ.get("USE_LOCAL_CLASSIFIER", "false").lower() == "true"
 
-#client = AsyncOpenAI() if not USE_LOCAL else None
-client = None
-if not USE_LOCAL:
-    client = AsyncOpenAI()
+client = AsyncOpenAI() if not USE_LOCAL else None
+# client = None
+# if not USE_LOCAL:
+#     client = AsyncOpenAI()
 
 INTENTS = ["define", "explain", "explore", "challenge", "clarify", "summarize"]
 
