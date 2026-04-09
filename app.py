@@ -70,6 +70,15 @@ class IngestRequest(BaseModel):
     page: Optional[int] = None
     metadata: Optional[Dict[str, Any]] = None
 
+class UpdateDocumentRequest(BaseModel):
+    source: str
+    text: str
+    page: Optional[int] = None
+    metadata: Optional[Dict[str, Any]] = None
+
+
+class ReplaceDatasetRequest(BaseModel):
+    documents: List[Dict[str, Any]]
 
 @app.get("/")
 async def home() -> FileResponse:
@@ -88,16 +97,8 @@ async def health() -> Dict[str, Any]:
 
 @app.get("/api/dataset")
 async def dataset_status() -> Dict[str, Any]:
-    preview = []
-    for document in kb.documents[:10]:
-        preview.append(
-            {
-                "source": document["source"],
-                "page": document["page"],
-                "text_preview": document["text"][:180],
-            }
-        )
-    return {"count": len(kb.documents), "preview": preview}
+    docs = kb.list_documents()
+    return {"count": len(docs), "documents": docs}
 
 
 @app.post("/api/dataset/reload")
@@ -150,6 +151,37 @@ async def upload_pdf(file: UploadFile = File(...)) -> Dict[str, Any]:
     added = kb.add_documents(chunks)
     return {"added": added, "count": len(kb.documents), "pages": len(raw_pages)}
 
+
+@app.put("/api/dataset/{doc_id}")
+async def update_document(doc_id: str, request: UpdateDocumentRequest) -> Dict[str, Any]:
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="Text is required.")
+    updated = kb.update_document(
+        doc_id,
+        {
+            "source": request.source,
+            "text": request.text,
+            "page": request.page,
+            "metadata": request.metadata or {},
+        },
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    return {"updated": True, "count": len(kb.documents)}
+
+
+@app.delete("/api/dataset/{doc_id}")
+async def delete_document(doc_id: str) -> Dict[str, Any]:
+    deleted = kb.delete_document(doc_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    return {"deleted": True, "count": len(kb.documents)}
+
+
+@app.post("/api/dataset/replace")
+async def replace_dataset(request: ReplaceDatasetRequest) -> Dict[str, Any]:
+    count = kb.replace_all_documents(request.documents)
+    return {"replaced": True, "count": count}
 
 @app.post("/chat")
 async def chat(request: ChatRequest) -> JSONResponse:

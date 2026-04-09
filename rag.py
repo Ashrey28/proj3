@@ -30,7 +30,7 @@ class SimpleKnowledgeBase:
 
     def _normalize_token(self, token: str) -> str:
         token = token.lower()
-        for suffix in ("ing", "ness", "edly", "edly", "edly", "ed", "es", "s"):
+        for suffix in ("ing", "ness", "edly", "ed", "es", "s"):
             if token.endswith(suffix) and len(token) > len(suffix) + 2:
                 token = token[: -len(suffix)]
                 break
@@ -66,28 +66,86 @@ class SimpleKnowledgeBase:
                 self._doc_freq[token] += 1
         self._avg_doc_len = (total_len / len(self.documents)) if self.documents else 0.0
 
-    def reload(self) -> None:
+    def _read_raw_documents(self) -> List[Dict[str, Any]]:
         if not os.path.exists(self.path):
-            self.documents = []
-            self._rebuild_index()
-            return
-
+            return []
         with open(self.path, "r", encoding="utf-8") as handle:
-            raw = json.load(handle)
+            return json.load(handle)
 
-        self.documents = [self._normalize_document(doc, i) for i, doc in enumerate(raw) if str(doc.get("text", "")).strip()]
+    def _write_raw_documents(self, docs: List[Dict[str, Any]]) -> None:
+        with open(self.path, "w", encoding="utf-8") as handle:
+            json.dump(docs, handle, ensure_ascii=False, indent=2)
+
+    def reload(self) -> None:
+        raw = self._read_raw_documents()
+        self.documents = [
+            self._normalize_document(doc, i)
+            for i, doc in enumerate(raw)
+            if str(doc.get("text", "")).strip()
+        ]
         self._rebuild_index()
 
+    def list_documents(self) -> List[Dict[str, Any]]:
+        raw = self._read_raw_documents()
+        cleaned = []
+        for i, doc in enumerate(raw):
+            cleaned.append({
+                "id": doc.get("id", f"doc_{i+1}"),
+                "source": doc.get("source", f"document_{i+1}"),
+                "page": doc.get("page"),
+                "text": doc.get("text", ""),
+                "metadata": doc.get("metadata", {})
+            })
+        return cleaned
+
     def add_documents(self, docs: List[Dict[str, Any]]) -> int:
-        existing = []
-        if os.path.exists(self.path):
-            with open(self.path, "r", encoding="utf-8") as handle:
-                existing = json.load(handle)
+        existing = self._read_raw_documents()
+        for i, doc in enumerate(docs):
+            if "id" not in doc:
+                doc["id"] = f"doc_{len(existing) + i + 1}"
         existing.extend(docs)
-        with open(self.path, "w", encoding="utf-8") as handle:
-            json.dump(existing, handle, ensure_ascii=False, indent=2)
+        self._write_raw_documents(existing)
         self.reload()
         return len(docs)
+
+    def update_document(self, doc_id: str, updated_doc: Dict[str, Any]) -> bool:
+        docs = self._read_raw_documents()
+        for i, doc in enumerate(docs):
+            if doc.get("id") == doc_id:
+                docs[i] = {
+                    "id": doc_id,
+                    "source": updated_doc.get("source", doc.get("source")),
+                    "page": updated_doc.get("page", doc.get("page")),
+                    "text": updated_doc.get("text", doc.get("text")),
+                    "metadata": updated_doc.get("metadata", doc.get("metadata", {})),
+                }
+                self._write_raw_documents(docs)
+                self.reload()
+                return True
+        return False
+
+    def delete_document(self, doc_id: str) -> bool:
+        docs = self._read_raw_documents()
+        new_docs = [doc for doc in docs if doc.get("id") != doc_id]
+        if len(new_docs) == len(docs):
+            return False
+        self._write_raw_documents(new_docs)
+        self.reload()
+        return True
+
+    def replace_all_documents(self, docs: List[Dict[str, Any]]) -> int:
+        cleaned_docs = []
+        for i, doc in enumerate(docs):
+            cleaned_docs.append({
+                "id": doc.get("id", f"doc_{i+1}"),
+                "source": doc.get("source", f"document_{i+1}"),
+                "page": doc.get("page"),
+                "text": str(doc.get("text", "")).strip(),
+                "metadata": doc.get("metadata", {})
+            })
+        self._write_raw_documents(cleaned_docs)
+        self.reload()
+        return len(cleaned_docs)
 
     def bm25_score(self, query_tokens: List[str], document: Dict[str, Any]) -> float:
         if not query_tokens or not self.documents:
@@ -122,6 +180,7 @@ class SimpleKnowledgeBase:
                     score += 0.15
             if score <= 0:
                 continue
+
             scored.append(
                 RetrievalResult(
                     text=document["text"],
