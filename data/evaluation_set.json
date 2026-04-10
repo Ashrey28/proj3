@@ -8,7 +8,7 @@
   },
   {
     "question": "What does the Heisenberg Uncertainty Principle state?",
-    "expected_answer": "It states that certain pairs of physical properties, such as position (x) and momentum (p), cannot be simultaneously known with arbitrary precision: ΔxΔp ≥ ħ/2.",
+    "expected_answer": "It states that certain pairs of physical properties, such as position (x) and momentum (p), cannot be simultaneously known with arbitrary precision. If we know the position, then we cannot know the exact momentum, and vice versa.",
     "expected_sources": [
       "Townsend Quantum Mechanics.pdf"
     ]

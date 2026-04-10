@@ -208,7 +208,7 @@ async def chat(request: ChatRequest) -> JSONResponse:
         last_problem=session.get("last_problem"),
     )
 
-    grounded = await grounded_engine.answer(request.message, chunks, prompt_result.user_prompt)
+    grounded = await grounded_engine.answer(request.message, chunks, prompt_result.user_prompt, router_persona=prompt_result.system_prompt)
 
     session["history"].append({"role": "user", "content": request.message})
     session["history"].append({"role": "assistant", "content": grounded.answer})
@@ -264,7 +264,12 @@ async def evaluate() -> Dict[str, Any]:
         } for item in retrieved]
 
         prompt_result = route_prompt(classified=classified, question=question, chunks=chunks, last_problem=None)
-        grounded = await grounded_engine.answer(question, chunks, prompt_result.user_prompt)
+        grounded = await grounded_engine.answer(
+        question, 
+        chunks, 
+        prompt_result.user_prompt, 
+        system_prompt=prompt_result.system_prompt # Pass the persona here!
+    )
         f1 = token_f1(grounded.answer, expected_answer)
         answer_correct = (
             f1 >= 0.25 or 

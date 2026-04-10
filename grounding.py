@@ -87,49 +87,42 @@ class GroundedResponseEngine:
         answer = f"{best_sentence} [Source: {best_chunk.get('source')}{page}]"
         return GroundedAnswer(answer=answer, grounded=True, grounding_score=1.0, unsupported_spans=[])
 
-    async def answer(self, question: str, chunks: List[Dict[str, Any]], routed_prompt: str) -> GroundedAnswer:
-        print(f"DEBUG: USE_LOCAL={USE_LOCAL} client={self.client}")  # ← add this
-        if USE_LOCAL or self.client is None:
-            return self._local_answer(question, chunks)
+    async def answer(
+            self, 
+            question: str, 
+            chunks: List[Dict[str, Any]], 
+            routed_prompt: str, 
+            router_persona: str = None  # Add this!
+        ) -> GroundedAnswer:
 
-        if not chunks:
-            return GroundedAnswer(
-                answer="I could not find enough support in the current dataset to answer that confidently.",
-                grounded=False,
-                grounding_score=0.0,
-                unsupported_spans=[question],
+            if USE_LOCAL or self.client is None:
+                return self._local_answer(question, chunks)
+
+            # 2. Move the technical constraints into a variable we can append
+            technical_constraints = (
+                " You are a technical Quantum Mechanics assistant. Your goal is precision and brevity. "
+                "1. Provide mathematical definitions whenever possible. 2. Avoid anecdotes. 3. Use a Technical & Concise tone."
             )
 
-        context = self._build_context(chunks)
-        # grounding.py - Modified logic
-        system_prompt = (
-            "You are a technical Quantum Mechanics assistant. "
-            "Your goal is precision and brevity. "
-            "1. Provide mathematical definitions ($\Delta x \Delta p \geq \hbar/2$) whenever possible. "
-            "2. Avoid historical anecdotes (e.g., Schrödinger's cat, EPR) or hypothetical characters (e.g., Eve) "
-            "unless explicitly asked. "
-            "3. Use a 'Technical & Concise' tone."
-        )
+            # 3. Use the persona from the router, otherwise fall back to a default
+            # We append the technical constraints to make sure it's always a "Technical Quiz Master"
+            base_persona = router_persona or "You are a strict RAG answerer."
+            final_system_prompt = base_persona + technical_constraints
 
+            context = self._build_context(chunks)
+            
+            user_prompt = (
+                f"Retrieved context:\n{context}\n\n"
+                f"User Message: {question}\n\n"
+                f"Task Instruction: {routed_prompt}\n\n"
+                "Return JSON with keys answer, grounded, grounding_score, unsupported_spans."
+            )
 
-        user_prompt = (
-            f"Retrieved context:\n{context}\n\n"
-            f"Question: {question}\n\n"
-            f"Draft instruction:\n{routed_prompt}\n\n"
-            "Return JSON with keys: \n"
-            "- answer: (string) The technical response.\n"
-            "- grounded: (boolean) True if the core physics is supported by the context.\n"
-            "- grounding_score: (float 0.0-1.0) Score how well the answer reflects the context. "
-            "Prioritize semantic meaning and physical principles over literal string matches. "
-            "Do not penalize for using synonymous technical terms (e.g., 'basis state' vs 'eigenstate').\n"
-            "- unsupported_spans: (list) Any fluff or unverified claims."
-        )
-
-        try:
+            # 4. Use final_system_prompt in the API call
             response = await self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": system_prompt},
+                    {"role": "system", "content": final_system_prompt}, # Use it here
                     {"role": "user", "content": user_prompt},
                 ],
                 temperature=0.1,
@@ -144,6 +137,3 @@ class GroundedResponseEngine:
                 grounding_score=float(payload.get("grounding_score", 0.0)),
                 unsupported_spans=list(payload.get("unsupported_spans", [])),
             )
-        except Exception as e:
-            print(f"DEBUG grounding exception: {e}")
-            return self._local_answer(question, chunks)
