@@ -119,21 +119,25 @@ class GroundedResponseEngine:
             )
 
             # 4. Use final_system_prompt in the API call
-            response = await self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": final_system_prompt}, # Use it here
-                    {"role": "user", "content": user_prompt},
-                ],
-                temperature=0.1,
-                max_tokens=900,
-                response_format={"type": "json_object"},
-            )
-            raw = (response.choices[0].message.content or "").strip()
-            payload = json.loads(raw) if raw else {}
-            return GroundedAnswer(
-                answer=str(payload.get("answer", "")).strip() or self._local_answer(question, chunks).answer,
-                grounded=bool(payload.get("grounded", False)),
-                grounding_score=float(payload.get("grounding_score", 0.0)),
-                unsupported_spans=list(payload.get("unsupported_spans", [])),
-            )
+            try:
+                response = await self.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": final_system_prompt}, # Use it here
+                        {"role": "user", "content": user_prompt},
+                    ],
+                    temperature=0.1,
+                    max_tokens=900,
+                    response_format={"type": "json_object"},
+                )
+                raw = (response.choices[0].message.content or "").strip()
+                payload = json.loads(raw) if raw else {}
+                return GroundedAnswer(
+                    answer=str(payload.get("answer", "")).strip() or self._local_answer(question, chunks).answer,
+                    grounded=bool(payload.get("grounded", False)),
+                    grounding_score=float(payload.get("grounding_score", 0.0)),
+                    unsupported_spans=list(payload.get("unsupported_spans", [])),
+                )
+            except Exception as e:
+                print(f"DEBUG grounding exception: {e}")
+                return self._local_answer(question, chunks)

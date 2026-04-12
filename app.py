@@ -265,11 +265,11 @@ async def evaluate() -> Dict[str, Any]:
 
         prompt_result = route_prompt(classified=classified, question=question, chunks=chunks, last_problem=None)
         grounded = await grounded_engine.answer(
-        question, 
-        chunks, 
-        prompt_result.user_prompt, 
-        system_prompt=prompt_result.system_prompt # Pass the persona here!
-    )
+            question,
+            chunks,
+            prompt_result.user_prompt,
+            router_persona=prompt_result.system_prompt
+        )
         f1 = token_f1(grounded.answer, expected_answer)
         answer_correct = (
             f1 >= 0.25 or 
