@@ -1,16 +1,6 @@
 import re
 from typing import Any, Dict, List
-from openai import AsyncOpenAI
 
-async def semantic_accuracy_check(prediction: str, reference: str, client: AsyncOpenAI) -> bool:
-    eval_prompt = (
-        f"Ground Truth: {reference}\n"
-        f"Model Answer: {prediction}\n\n"
-        "Does the model answer contain the core physical concept and formulas "
-        "present in the ground truth? Answer with 'YES' or 'NO' and a brief reason."
-    )
-    # Call OpenAI to get a 'YES' or 'NO'
-    # ... logic to return True/False
 
 def normalize_text(text: str) -> str:
     text = text.lower().strip()
@@ -25,10 +15,10 @@ def token_f1(prediction: str, reference: str) -> float:
     ref_tokens = normalize_text(reference).split()
     if not pred_tokens or not ref_tokens:
         return 0.0
-    pred_counts = {}
+    pred_counts: Dict[str, int] = {}
+    ref_counts: Dict[str, int] = {}
     for token in pred_tokens:
         pred_counts[token] = pred_counts.get(token, 0) + 1
-    ref_counts = {}
     for token in ref_tokens:
         ref_counts[token] = ref_counts.get(token, 0) + 1
     overlap = 0
@@ -47,6 +37,11 @@ def source_hit(actual_sources: List[Dict[str, Any]], expected_sources: List[str]
     return bool(expected & actual)
 
 
+def completion_score(result: Dict[str, Any]) -> float:
+    parts = [0.4 if result.get("answer_correct") else 0.0, 0.3 if result.get("source_correct") else 0.0, 0.3 if result.get("grounded") else 0.0]
+    return round(sum(parts), 4)
+
+
 def summarize_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     if not results:
         return {
@@ -54,32 +49,36 @@ def summarize_results(results: List[Dict[str, Any]]) -> Dict[str, Any]:
             "answer_accuracy": 0.0,
             "source_accuracy": 0.0,
             "grounded_rate": 0.0,
+            "completion": 0.0,
             "answer_correct_count": 0,
             "source_correct_count": 0,
             "grounded_count": 0,
             "answer_accuracy_pct": 0,
             "source_accuracy_pct": 0,
             "grounded_rate_pct": 0,
+            "completion_pct": 0,
         }
-
     total = len(results)
-    answer_correct_count = sum(item["answer_correct"] for item in results)
-    source_correct_count = sum(item["source_correct"] for item in results)
-    grounded_count = sum(item["grounded"] for item in results)
+    answer_correct_count = sum(1 for item in results if item["answer_correct"])
+    source_correct_count = sum(1 for item in results if item["source_correct"])
+    grounded_count = sum(1 for item in results if item["grounded"])
     answer_accuracy = answer_correct_count / total
     source_accuracy = source_correct_count / total
     grounded_rate = grounded_count / total
-    avg_grounding = sum(item.get("grounding_score", 0.0) for item in results) / total if total > 0 else 0
+    avg_grounding = sum(item.get("grounding_score", 0.0) for item in results) / total
+    completion = sum(item.get("completion", completion_score(item)) for item in results) / total
     return {
         "total": total,
         "answer_accuracy": round(answer_accuracy, 4),
         "mean_grounding_score": round(avg_grounding, 4),
         "source_accuracy": round(source_accuracy, 4),
         "grounded_rate": round(grounded_rate, 4),
+        "completion": round(completion, 4),
         "answer_correct_count": answer_correct_count,
         "source_correct_count": source_correct_count,
         "grounded_count": grounded_count,
         "answer_accuracy_pct": round(answer_accuracy * 100, 1),
         "source_accuracy_pct": round(source_accuracy * 100, 1),
         "grounded_rate_pct": round(grounded_rate * 100, 1),
+        "completion_pct": round(completion * 100, 1),
     }
