@@ -496,7 +496,7 @@ pre {
       <div class="sidebar-label">Sections</div>
       <div class="sidebar-mini-list">
         <div class="sidebar-mini-item"><strong>Ingest text</strong>Add or reload knowledge chunks.</div>
-        <div class="sidebar-mini-item"><strong>Dataset preview</strong>Inspect the first 10 chunks.</div>
+        <div class="sidebar-mini-item"><strong>Dataset preview</strong>Inspect chunks, delete one chunk, or delete selected chunks.</div>
         <div class="sidebar-mini-item"><strong>Evaluation</strong>Run the saved benchmark set.</div>
         <div class="sidebar-mini-item"><strong>Per-question results</strong>Review answer, source, and grounding.</div>
         <div class="sidebar-mini-item"><strong>System</strong>Check live health and chunk counts.</div>
@@ -535,9 +535,9 @@ pre {
             <div class="row" style="justify-content:space-between;margin-bottom:12px">
               <div>
                 <div class="card-title" style="font-size:20px">Dataset preview</div>
-                <div class="card-sub" style="margin-bottom:0">First 10 chunks in the knowledge base.</div>
+                <div class="card-sub" style="margin-bottom:0">Chunk list with delete controls.</div>
               </div>
-              <button class="alt" onclick="refreshDataset()">Refresh</button>
+              <div class="row" style="gap:8px"><button class="alt" onclick="refreshDataset()">Refresh</button></div>
             </div>
             <div class="chunk-list" id="chunkList"><div class="empty-note">Loading…</div></div>
           </section>
@@ -571,6 +571,7 @@ pre {
               <div class="metric"><div class="metric-key">Answer accuracy</div><div class="metric-val" id="metricAnswer">—</div><div class="metric-sub" id="metricAnswerSub">—</div></div>
               <div class="metric"><div class="metric-key">Source accuracy</div><div class="metric-val" id="metricSource">—</div><div class="metric-sub" id="metricSourceSub">—</div></div>
               <div class="metric"><div class="metric-key">Grounded rate</div><div class="metric-val" id="metricGrounded">—</div><div class="metric-sub" id="metricGroundedSub">—</div></div>
+              <div class="metric"><div class="metric-key">Completion</div><div class="metric-val" id="metricCompletion">—</div><div class="metric-sub" id="metricCompletionSub">—</div></div>
             </div>
             <div id="evalStatus" class="status">Idle.</div>
           </section>
@@ -580,7 +581,7 @@ pre {
             <div class="card-sub">Expected vs model output, F1, source hit, and grounding per question.</div>
             <div class="table-wrap">
               <table>
-                <thead><tr><th>Question</th><th>Expected</th><th>Model answer</th><th>F1</th><th>Answer</th><th>Source</th><th>Grounded</th></tr></thead>
+                <thead><tr><th>Question</th><th>Expected</th><th>Model answer</th><th>F1</th><th>Answer</th><th>Source</th><th>Grounded</th><th>Completion</th></tr></thead>
                 <tbody id="evalResults"></tbody>
               </table>
             </div>
@@ -635,104 +636,123 @@ async function refreshDataset(){
     }
     list.innerHTML=data.preview.map(d=>`
       <div class="chunk-item">
-        <div class="chunk-meta">${escHtml(d.source)}${d.page?' · p.'+d.page:''}</div>
-        <div class="chunk-text">${escHtml(d.text_preview)}…</div>
+        <div class="row" style="justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="chunk-meta">#${escHtml(d.id)} · ${escHtml(d.source)}${d.page?' · p.'+d.page:''}</div>
+            <div class="chunk-text">${escHtml(d.text_preview)}…</div>
+          </div>
+          <div class="row" style="gap:8px;align-items:center">
+            <button class="danger" onclick="deleteChunk('${escHtml(d.id)}')">Delete</button>
+          </div>
+        </div>
       </div>`).join('');
   }catch(e){ $('datasetStatus').value='unavailable'; }
 }
 
-async function addDocument(){
+async function addToDataset(){
+  const source=$('source').value.trim();
   const text=$('text').value.trim();
-  if(!text){$('ingestStatus').textContent='Error: text is required.';return;}
-  $('ingestStatus').textContent='Adding…';$('addBtn').disabled=true;
+  const page=Number($('page').value||1);
+  if(!text){ $('ingestStatus').textContent='Please enter text first.'; return; }
+  $('ingestStatus').textContent='Adding…';
   try{
-    const data=await fetch('/api/dataset/add',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({source:$('source').value.trim(),text,page:parseInt($('page').value,10)||null})
-    }).then(r=>r.json());
-    $('ingestStatus').textContent=`Done. Dataset now has ${data.count} chunks.`;
-    $('text').value='';refreshDataset();
-  }catch(e){$('ingestStatus').textContent='Error: '+e.message;}
-  $('addBtn').disabled=false;
+    const data=await fetch('/api/dataset/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source,text,page})}).then(r=>r.json());
+    $('ingestStatus').textContent=`Added. Dataset now has ${data.count} chunks.`;
+    $('text').value='';
+    await refreshDataset();
+    await checkHealth();
+  }catch(e){ $('ingestStatus').textContent=`Add failed: ${e.message}`; }
 }
 
 async function reloadDataset(){
-  $('ingestStatus').textContent='Reloading…';$('reloadBtn').disabled=true;
+  $('ingestStatus').textContent='Reloading…';
   try{
     const data=await fetch('/api/dataset/reload',{method:'POST'}).then(r=>r.json());
-    $('ingestStatus').textContent=`Reloaded. ${data.count} chunks.`;refreshDataset();
-  }catch(e){$('ingestStatus').textContent='Error: '+e.message;}
-  $('reloadBtn').disabled=false;
+    $('ingestStatus').textContent=`Reloaded. Dataset has ${data.count} chunks.`;
+    await refreshDataset();
+    await checkHealth();
+  }catch(e){ $('ingestStatus').textContent=`Reload failed: ${e.message}`; }
 }
 
 async function clearDataset(){
-  if(!confirm('Clear the entire knowledge base? This cannot be undone.'))return;
   $('ingestStatus').textContent='Clearing…';
   try{
-    const data=await fetch('/api/dataset/replace',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({documents:[]})}).then(r=>r.json());
-    $('ingestStatus').textContent=`Cleared. ${data.count} chunks remaining.`;refreshDataset();
-  }catch(e){$('ingestStatus').textContent='Error: '+e.message;}
+    const data=await fetch('/api/dataset/clear',{method:'POST'}).then(r=>r.json());
+    $('ingestStatus').textContent=`Cleared. Dataset now has ${data.count} chunks.`;
+    await refreshDataset();
+    await checkHealth();
+  }catch(e){ $('ingestStatus').textContent=`Clear failed: ${e.message}`; }
 }
 
-async function runEvaluation(){
-  $('evalStatus').textContent='Running… this may take a moment.';
-  $('evalBtn').disabled=true;$('evalResults').innerHTML='';
+async function deleteChunk(id){
   try{
-    const res=await fetch('/api/evaluate',{method:'POST'});
-    if(!res.ok){const e=await res.json();$('evalStatus').textContent='Error: '+(e.detail||res.status);return;}
-    const data=await res.json();const s=data.summary;
-    $('metricTotal').textContent=s.total;$('metricTotalSub').textContent=`${s.total} questions`;
-    $('metricAnswer').textContent=s.answer_accuracy_pct+'%';$('metricAnswerSub').textContent=`${s.answer_correct_count}/${s.total} correct`;
-    $('metricSource').textContent=s.source_accuracy_pct+'%';$('metricSourceSub').textContent=`${s.source_correct_count}/${s.total} hits`;
-    $('metricGrounded').textContent=s.grounded_rate_pct+'%';$('metricGroundedSub').textContent=`${s.grounded_count}/${s.total} grounded`;
-    data.results.forEach(item=>{
-      const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${escHtml(item.question)}</td><td style="max-width:150px">${escHtml(item.expected_answer)}</td>
-        <td style="max-width:200px"><pre>${escHtml(item.model_answer)}</pre></td>
-        <td>${item.token_f1}</td><td>${badge(item.answer_correct)}</td><td>${badge(item.source_correct)}</td><td>${badge(item.grounded)}</td>`;
-      $('evalResults').appendChild(tr);
-    });
-    $('evalStatus').textContent=`Finished at ${new Date().toLocaleTimeString()}.`;
-  }catch(e){$('evalStatus').textContent='Error: '+e.message;}
-  $('evalBtn').disabled=false;
+    const res = await fetch(`/api/dataset/${encodeURIComponent(id)}`, {method:'DELETE'});
+    if(!res.ok){ throw new Error('delete failed'); }
+    await refreshDataset();
+    await checkHealth();
+  }catch(e){ $('ingestStatus').textContent=`Delete failed: ${e.message}`; }
+}
+
+async function deleteSelectedChunks(){
+  const ids = Array.from(document.querySelectorAll('.chunk-check:checked')).map(el=>el.value);
+  if(ids.length===0){ $('ingestStatus').textContent='No chunks selected.'; return; }
+  $('ingestStatus').textContent=`Deleting ${ids.length} chunk(s)…`;
+  for(const id of ids){
+    const res = await fetch(`/api/dataset/${encodeURIComponent(id)}`, {method:'DELETE'});
+    if(!res.ok){ $('ingestStatus').textContent=`Delete stopped at chunk ${id}.`; break; }
+  }
+  await refreshDataset();
+  await checkHealth();
+  $('ingestStatus').textContent='Selected chunks deleted.';
+}
+
+async function runEval(){
+  $('evalStatus').textContent='Running evaluation…';
+  try{
+    const payload=await fetch('/api/evaluate',{method:'POST'}).then(r=>r.json());
+    const s=payload.summary||{};
+    $('metricTotal').textContent=s.total ?? '0';
+    $('metricTotalSub').textContent='saved evaluation cases';
+    $('metricAnswer').textContent=`${s.answer_accuracy_pct ?? 0}%`;
+    $('metricAnswerSub').textContent=`${s.answer_correct_count ?? 0} correct`;
+    $('metricSource').textContent=`${s.source_accuracy_pct ?? 0}%`;
+    $('metricSourceSub').textContent=`${s.source_correct_count ?? 0} matched sources`;
+    $('metricGrounded').textContent=`${s.grounded_rate_pct ?? 0}%`;
+    $('metricGroundedSub').textContent=`${s.grounded_count ?? 0} grounded`;
+    $('metricCompletion').textContent=`${s.completion_pct ?? 0}%`;
+    $('metricCompletionSub').textContent='answer + source + grounding';
+    $('evalResults').innerHTML=(payload.results||[]).map(r=>`<tr><td>${escHtml(r.question)}</td><td>${escHtml(r.expected_answer)}</td><td><pre>${escHtml(r.model_answer)}</pre></td><td>${r.token_f1}</td><td>${badge(r.answer_correct)}</td><td>${badge(r.source_correct)}</td><td>${badge(r.grounded)}</td><td>${Math.round((r.completion||0)*100)}%</td></tr>`).join('') || '<tr><td colspan="8">No results.</td></tr>';
+    $('evalStatus').textContent='Evaluation complete.';
+  }catch(e){ $('evalStatus').textContent=`Eval failed: ${e.message}`; }
 }
 
 async function sendTestQuery(){
   const q=prompt('Enter a test question:');
-  if(!q)return;
-  const start=Date.now();
+  if(!q){ return; }
   try{
-    const res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q})});
+    const started = Date.now();
+    const res=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:q})});
     const data=await res.json();
-    queryLog.unshift({time:new Date().toLocaleTimeString(),q,ms:Date.now()-start,response:data});
+    queryLog.unshift({time:new Date().toLocaleTimeString(), q, ms:data.latency_ms || (Date.now()-started), sourceCount:(data.sources||[]).length});
     renderLog();
-  }catch(e){
-    queryLog.unshift({time:new Date().toLocaleTimeString(),q:`${q} (failed: ${e.message})`,ms:Date.now()-start});
-    renderLog();
-  }
+  }catch(e){ alert(`Query failed: ${e.message}`); }
+}
+
+function renderLog(){
+  const list=$('logList');
+  if(queryLog.length===0){ list.innerHTML='<div class="empty-note">No queries yet.</div>'; return; }
+  list.innerHTML=queryLog.map(item=>`<div class="log-item"><div class="log-time">${escHtml(item.time)}</div><div class="log-q">${escHtml(item.q)} <span style="color:#8a8278">· ${item.sourceCount} sources</span></div><div class="log-ms">${item.ms} ms</div></div>`).join('');
 }
 
 function clearLog(){ queryLog=[]; renderLog(); }
-function renderLog(){
-  const el=$('logList');
-  if(queryLog.length===0){ el.innerHTML='<div class="empty-note">No queries yet.</div>'; return; }
-  el.innerHTML=queryLog.map(item=>`
-    <div class="log-item">
-      <div class="log-time">${escHtml(item.time)}</div>
-      <div class="log-q">${escHtml(item.q)}</div>
-      <div class="log-ms">${item.ms} ms</div>
-    </div>`).join('');
-}
 
-$('addBtn').addEventListener('click', addDocument);
+$('addBtn').addEventListener('click', addToDataset);
 $('reloadBtn').addEventListener('click', reloadDataset);
 $('clearBtn').addEventListener('click', clearDataset);
-$('evalBtn').addEventListener('click', runEvaluation);
-
+$('evalBtn').addEventListener('click', runEval);
 checkHealth();
 refreshDataset();
 renderLog();
-setInterval(checkHealth, 15000);
 </script>
 </body>
 </html>
