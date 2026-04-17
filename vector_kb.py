@@ -1,15 +1,7 @@
 """
 vector_kb.py — Story 2 + 5
 ChromaDB-backed knowledge base with OpenAI embeddings.
-Drop-in replacement for SimpleKnowledgeBase in app.py.
-
-Swap in app.py:
-    from vector_kb import VectorKnowledgeBase
-    kb = VectorKnowledgeBase()
-
-Requires:
-    pip install chromadb openai
-    OPENAI_API_KEY env var set (or USE_LOCAL_CLASSIFIER=true for BM25 fallback)
+Falls back to BM25 when local mode is enabled or vector deps are unavailable.
 """
 
 import json
@@ -19,19 +11,6 @@ from collections import Counter
 from dataclasses import dataclass
 from math import log
 from typing import Any, Dict, List, Optional
-
-# ── Shared result type (same as rag.py so app.py needs no changes) ──────────
-
-@dataclass
-class RetrievalResult:
-    text: str
-    source: str
-    page: Optional[int]
-    score: float
-    metadata: Dict[str, Any]
-
-
-# ── Try to load ChromaDB + OpenAI; fall back to BM25 if unavailable ─────────
 
 USE_LOCAL = os.environ.get("USE_LOCAL_CLASSIFIER", "false").lower() == "true"
 
@@ -44,69 +23,51 @@ except ImportError:
     _CHROMA_AVAILABLE = False
     USE_LOCAL = True
 
-
 DEFAULT_KB_PATH = os.path.join(os.path.dirname(__file__), "data", "knowledge_base.json")
 CHROMA_PERSIST_DIR = os.path.join(os.path.dirname(__file__), "data", "chroma_db")
 COLLECTION_NAME = "knowledge_base"
 EMBED_MODEL = "text-embedding-3-small"
-EMBED_BATCH = 100  # OpenAI max per request
+EMBED_BATCH = 100
 
 
-# ════════════════════════════════════════════════════════════════════════════
-#  Vector Knowledge Base (ChromaDB + OpenAI embeddings)
-# ════════════════════════════════════════════════════════════════════════════
+@dataclass
+class RetrievalResult:
+    text: str
+    source: str
+    page: Optional[int]
+    score: float
+    metadata: Dict[str, Any]
+
 
 class VectorKnowledgeBase:
-    """
-    Primary knowledge base for production.
-    Uses ChromaDB for vector storage and OpenAI embeddings for similarity search.
-    Automatically falls back to BM25 if ChromaDB/OpenAI are unavailable.
-    """
-
     def __init__(self, path: str = DEFAULT_KB_PATH):
         self.path = path
         self.documents: List[Dict[str, Any]] = []
-
         if _CHROMA_AVAILABLE and not USE_LOCAL:
             self._mode = "vector"
             os.makedirs(CHROMA_PERSIST_DIR, exist_ok=True)
-            self._chroma = chromadb.PersistentClient(
-                path=CHROMA_PERSIST_DIR,
-                settings=Settings(anonymized_telemetry=False),
-            )
-            self._collection = self._chroma.get_or_create_collection(
-                name=COLLECTION_NAME,
-                metadata={"hnsw:space": "cosine"},
-            )
+            self._chroma = chromadb.PersistentClient(path=CHROMA_PERSIST_DIR, settings=Settings(anonymized_telemetry=False))
+            self._collection = self._chroma.get_or_create_collection(name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
             self._embed_client = OpenAI()
         else:
             self._mode = "bm25"
             self._doc_freq: Counter = Counter()
             self._avg_doc_len: float = 0.0
-
         self.reload()
 
-    # ── Embedding helpers ────────────────────────────────────────────────────
-
     def _embed(self, texts: List[str]) -> List[List[float]]:
-        """Call OpenAI embeddings API in batches."""
         all_embeddings: List[List[float]] = []
         for i in range(0, len(texts), EMBED_BATCH):
-            batch = texts[i : i + EMBED_BATCH]
-            response = self._embed_client.embeddings.create(
-                model=EMBED_MODEL,
-                input=batch,
-            )
+            batch = texts[i:i + EMBED_BATCH]
+            response = self._embed_client.embeddings.create(model=EMBED_MODEL, input=batch)
             all_embeddings.extend([item.embedding for item in response.data])
         return all_embeddings
-
-    # ── BM25 helpers (fallback) ──────────────────────────────────────────────
 
     def _normalize_token(self, token: str) -> str:
         token = token.lower()
         for suffix in ("ing", "ness", "edly", "ed", "es", "s"):
             if token.endswith(suffix) and len(token) > len(suffix) + 2:
-                token = token[: -len(suffix)]
+                token = token[:-len(suffix)]
                 break
         return token
 
@@ -137,16 +98,16 @@ class VectorKnowledgeBase:
             score += idf * ((tf * (k1 + 1)) / denom)
         return score
 
-    # ── Document normalization ───────────────────────────────────────────────
-
     def _normalize_doc(self, doc: Dict[str, Any], index: int) -> Dict[str, Any]:
         text = str(doc.get("text", "")).strip()
         source = str(doc.get("source", f"document_{index + 1}"))
         page = doc.get("page")
         metadata = dict(doc.get("metadata") or {})
         tokens = self._tokenize(text) if self._mode == "bm25" else []
+        default_id = doc.get("id") or metadata.get("chunk_id") or f"doc_{index + 1}"
+        metadata.setdefault("chunk_id", str(default_id))
         return {
-            "id": str(doc.get("id", f"doc_{index + 1}")),
+            "id": str(default_id),
             "text": text,
             "source": source,
             "page": page,
@@ -156,121 +117,73 @@ class VectorKnowledgeBase:
             "length": len(tokens) or 1,
         }
 
-    # ── Load / reload ────────────────────────────────────────────────────────
-
-    def reload(self) -> None:
-        """Re-read knowledge_base.json and re-index everything."""
+    def _load_raw(self) -> List[Dict[str, Any]]:
         if not os.path.exists(self.path):
-            self.documents = []
-            if self._mode == "bm25":
-                self._rebuild_bm25_index()
-            return
-
+            return []
         with open(self.path, "r", encoding="utf-8") as f:
             raw = json.load(f)
+        return raw if isinstance(raw, list) else []
 
-        self.documents = [
-            self._normalize_doc(doc, i)
-            for i, doc in enumerate(raw)
-            if str(doc.get("text", "")).strip()
-        ]
+    def _save_raw(self, docs: List[Dict[str, Any]]) -> None:
+        with open(self.path, "w", encoding="utf-8") as f:
+            json.dump(docs, f, ensure_ascii=False, indent=2)
 
+    def reload(self) -> None:
+        raw = self._load_raw()
+        self.documents = [self._normalize_doc(doc, i) for i, doc in enumerate(raw) if str(doc.get("text", "")).strip()]
         if self._mode == "bm25":
             self._rebuild_bm25_index()
         else:
-            self._sync_to_chroma()
+            self._resync_chroma()
 
-    def _sync_to_chroma(self) -> None:
-        """
-        Upsert all documents from knowledge_base.json into ChromaDB.
-        Uses doc IDs so re-loading is idempotent (no duplicates).
-        """
+    def _resync_chroma(self) -> None:
+        self._chroma.delete_collection(COLLECTION_NAME)
+        self._collection = self._chroma.get_or_create_collection(name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
         if not self.documents:
             return
-
-        # Figure out which IDs are already in the collection
-        existing = set(self._collection.get(include=[])["ids"])
-        to_add = [d for d in self.documents if d["id"] not in existing]
-
-        if not to_add:
-            return
-
-        texts = [d["text"] for d in to_add]
+        texts = [d["text"] for d in self.documents]
         embeddings = self._embed(texts)
-
         self._collection.add(
-            ids=[d["id"] for d in to_add],
+            ids=[d["id"] for d in self.documents],
             embeddings=embeddings,
             documents=texts,
-            metadatas=[
-                {
-                    "source": d["source"],
-                    "page": d["page"] if d["page"] is not None else -1,
-                    **{k: str(v) for k, v in d["metadata"].items()},
-                }
-                for d in to_add
-            ],
+            metadatas=[{"source": d["source"], "page": d["page"] if d["page"] is not None else -1, **{k: str(v) for k, v in d["metadata"].items()}} for d in self.documents],
         )
 
-    # ── Add documents ────────────────────────────────────────────────────────
-
     def add_documents(self, docs: List[Dict[str, Any]]) -> int:
-        """
-        Persist new documents to knowledge_base.json and index them.
-        Returns count of documents added.
-        """
-        existing = []
-        if os.path.exists(self.path):
-            with open(self.path, "r", encoding="utf-8") as f:
-                existing = json.load(f)
-        existing.extend(docs)
-        with open(self.path, "w", encoding="utf-8") as f:
-            json.dump(existing, f, ensure_ascii=False, indent=2)
+        existing = self._load_raw()
+        start = len(existing)
+        normalized = []
+        for offset, doc in enumerate(docs, start=1):
+            doc = dict(doc)
+            metadata = dict(doc.get("metadata") or {})
+            doc_id = str(doc.get("id") or metadata.get("chunk_id") or f"doc_{start + offset}")
+            doc["id"] = doc_id
+            metadata["chunk_id"] = doc_id
+            doc["metadata"] = metadata
+            normalized.append(doc)
+        existing.extend(normalized)
+        self._save_raw(existing)
         self.reload()
-        return len(docs)
-
-    # ── Search ───────────────────────────────────────────────────────────────
+        return len(normalized)
 
     def search(self, query: str, top_k: int = 3) -> List[RetrievalResult]:
-        """
-        Return top_k most relevant chunks for the query.
-        Uses cosine similarity on OpenAI embeddings (vector mode)
-        or BM25 (fallback mode).
-        """
         if not self.documents:
             return []
-
-        if self._mode == "vector":
-            return self._vector_search(query, top_k)
-        else:
-            return self._bm25_search(query, top_k)
+        return self._vector_search(query, top_k) if self._mode == "vector" else self._bm25_search(query, top_k)
 
     def _vector_search(self, query: str, top_k: int) -> List[RetrievalResult]:
         query_embedding = self._embed([query])[0]
-        results = self._collection.query(
-            query_embeddings=[query_embedding],
-            n_results=min(top_k, self._collection.count() or 1),
-            include=["documents", "metadatas", "distances"],
-        )
-
+        results = self._collection.query(query_embeddings=[query_embedding], n_results=min(top_k, self._collection.count() or 1), include=["documents", "metadatas", "distances"])
         output: List[RetrievalResult] = []
         for i, doc_text in enumerate(results["documents"][0]):
             meta = results["metadatas"][0][i]
-            # Chroma returns cosine *distance* (0=identical, 2=opposite) → convert to similarity
             distance = results["distances"][0][i]
             score = round(1.0 - distance / 2.0, 4)
             page = meta.get("page")
             if page == -1:
                 page = None
-            output.append(
-                RetrievalResult(
-                    text=doc_text,
-                    source=meta.get("source", "Unknown"),
-                    page=page,
-                    score=score,
-                    metadata={k: v for k, v in meta.items() if k not in ("source", "page")},
-                )
-            )
+            output.append(RetrievalResult(text=doc_text, source=meta.get("source", "Unknown"), page=page, score=score, metadata={k: v for k, v in meta.items() if k not in ("source", "page")}))
         return output
 
     def _bm25_search(self, query: str, top_k: int) -> List[RetrievalResult]:
@@ -283,31 +196,59 @@ class VectorKnowledgeBase:
                     score += 0.15
             if score <= 0:
                 continue
-            scored.append(
-                RetrievalResult(
-                    text=doc["text"],
-                    source=doc["source"],
-                    page=doc["page"],
-                    score=round(score, 4),
-                    metadata=doc["metadata"],
-                )
-            )
+            scored.append(RetrievalResult(text=doc["text"], source=doc["source"], page=doc["page"], score=round(score, 4), metadata=doc["metadata"]))
         scored.sort(key=lambda r: r.score, reverse=True)
         return scored[:top_k]
 
-    # ── Admin helpers ────────────────────────────────────────────────────────
-
     def clear(self) -> None:
-        """Delete all documents from ChromaDB and the JSON store."""
         if self._mode == "vector":
             self._chroma.delete_collection(COLLECTION_NAME)
-            self._collection = self._chroma.get_or_create_collection(
-                name=COLLECTION_NAME,
-                metadata={"hnsw:space": "cosine"},
-            )
-        if os.path.exists(self.path):
-            with open(self.path, "w", encoding="utf-8") as f:
-                json.dump([], f)
+            self._collection = self._chroma.get_or_create_collection(name=COLLECTION_NAME, metadata={"hnsw:space": "cosine"})
+        self._save_raw([])
         self.documents = []
         if self._mode == "bm25":
             self._rebuild_bm25_index()
+
+    def replace_all_documents(self, docs: List[Dict[str, Any]]) -> int:
+        self.clear()
+        return self.add_documents(docs) if docs else 0
+
+    def delete_document(self, doc_id: str) -> bool:
+        raw = self._load_raw()
+        kept = []
+        deleted = False
+        for index, doc in enumerate(raw):
+            current_id = str(doc.get("id") or (doc.get("metadata") or {}).get("chunk_id") or f"doc_{index + 1}")
+            if current_id == str(doc_id):
+                deleted = True
+                continue
+            kept.append(doc)
+        if not deleted:
+            return False
+        self._save_raw(kept)
+        self.reload()
+        return True
+
+    def update_document(self, doc_id: str, updated_doc: Dict[str, Any]) -> bool:
+        raw = self._load_raw()
+        changed = False
+        for index, doc in enumerate(raw):
+            current_id = str(doc.get("id") or (doc.get("metadata") or {}).get("chunk_id") or f"doc_{index + 1}")
+            if current_id == str(doc_id):
+                metadata = dict(doc.get("metadata") or {})
+                metadata.update(updated_doc.get("metadata") or {})
+                metadata["chunk_id"] = str(doc_id)
+                raw[index] = {
+                    "id": str(doc_id),
+                    "source": updated_doc.get("source", doc.get("source", f"document_{index + 1}")),
+                    "text": updated_doc.get("text", doc.get("text", "")),
+                    "page": updated_doc.get("page", doc.get("page")),
+                    "metadata": metadata,
+                }
+                changed = True
+                break
+        if not changed:
+            return False
+        self._save_raw(raw)
+        self.reload()
+        return True
