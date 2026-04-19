@@ -115,7 +115,7 @@ class GroundedResponseEngine:
                 f"Retrieved context:\n{context}\n\n"
                 f"User Message: {question}\n\n"
                 f"Task Instruction: {routed_prompt}\n\n"
-                "Return JSON with keys answer, grounded, grounding_score, unsupported_spans."
+                "Return JSON with keys: answer (a plain prose string — never a nested object or list), grounded (bool), grounding_score (float 0-1), unsupported_spans (list of strings)."
             )
 
             # 4. Use final_system_prompt in the API call

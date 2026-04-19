@@ -40,6 +40,7 @@ STOPWORDS = {
 class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
+    intent_override: Optional[str] = None  # explicit mode from UI (quiz, explore, summarize, etc.)
 
 
 class IngestRequest(BaseModel):
@@ -176,6 +177,16 @@ async def chat(request: ChatRequest) -> JSONResponse:
     classified = apply_session_depth(classified, session["depth_history"])
     if "depth_label" not in classified:
         classified["depth_label"] = ["", "beginner", "intermediate", "advanced"][classified["depth"]]
+
+    # UI mode override — developer-controlled intent selection (User Story 8)
+    _MODE_TO_INTENT = {"quiz": "challenge", "explore": "explore", "summarize": "summarize", "learn": None}
+    if request.intent_override and request.intent_override in _MODE_TO_INTENT:
+        forced = _MODE_TO_INTENT[request.intent_override]
+        if forced:
+            classified["intent"] = forced
+            if forced != "challenge":
+                classified["challenge_subtype"] = None
+
     retrieved = filter_retrieved_results(request.message, kb.search(request.message, top_k=3))
     chunks = [{"text": item.text, "source": item.source, "page": item.page, "score": round(item.score, 4), "metadata": item.metadata} for item in retrieved]
     prompt_result = route_prompt(classified=classified, question=request.message, chunks=chunks, last_problem=session.get("last_problem"))
