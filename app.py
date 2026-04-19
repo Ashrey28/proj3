@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import time
@@ -84,6 +85,11 @@ async def home() -> FileResponse:
 @app.get("/developer")
 async def developer_page() -> FileResponse:
     return FileResponse(os.path.join(STATIC_DIR, "developer.html"))
+
+
+@app.get("/exam")
+async def exam_page() -> FileResponse:
+    return FileResponse(os.path.join(STATIC_DIR, "exam.html"))
 
 
 @app.get("/health")
@@ -248,3 +254,63 @@ async def evaluate() -> Dict[str, Any]:
         row["completion"] = completion_score(row)
         results.append(row)
     return {"summary": summarize_results(results), "results": results}
+
+
+# ── Exam generation ───────────────────────────────────────────────────────────
+
+class ExamRequest(BaseModel):
+    chapters: str
+    mcq: int = 3
+    frq: int = 2
+    true_false: int = 0
+
+
+@app.post("/api/exam")
+async def generate_exam(request: ExamRequest) -> JSONResponse:
+    from grounding import USE_LOCAL
+    total = request.mcq + request.frq + request.true_false
+    if total == 0:
+        raise HTTPException(status_code=400, detail="Specify at least one question.")
+
+    retrieved = kb.search(f"chapter {request.chapters} key concepts", top_k=10)
+    if not retrieved:
+        raise HTTPException(status_code=422, detail="No content found for those chapters.")
+
+    context = "\n\n".join(
+        f"[{i+1}] ({r.source}{f', p.{r.page}' if r.page else ''})\n{r.text}"
+        for i, r in enumerate(retrieved)
+    )
+    breakdown = []
+    if request.mcq: breakdown.append(f"{request.mcq} multiple-choice (4 options A-D, include 'answer' key with correct letter)")
+    if request.frq: breakdown.append(f"{request.frq} free-response (include 'answer' key with model answer)")
+    if request.true_false: breakdown.append(f"{request.true_false} true/false (include 'answer' key: true or false)")
+
+    prompt = f"""Generate a practice exam on: {request.chapters}
+Breakdown: {', '.join(breakdown)}. Total: {total} questions. Use ONLY the source material below.
+
+{context}
+
+Return JSON exactly:
+{{"title": "Practice Exam — <topic>", "questions": [
+  {{"type": "mcq", "question": "...", "options": {{"A": "...", "B": "...", "C": "...", "D": "..."}}, "answer": "A", "explanation": "..."}},
+  {{"type": "frq", "question": "...", "answer": "..."}},
+  {{"type": "tf", "question": "...", "answer": true}}
+]}}"""
+
+    if USE_LOCAL or grounded_engine.client is None:
+        raise HTTPException(status_code=503, detail="Exam generation requires an OpenAI API key.")
+
+    try:
+        resp = await grounded_engine.client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a rigorous exam generator. Only use provided material. Return valid JSON only."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.3,
+            max_tokens=2500,
+            response_format={"type": "json_object"},
+        )
+        return JSONResponse(json.loads(resp.choices[0].message.content or "{}"))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

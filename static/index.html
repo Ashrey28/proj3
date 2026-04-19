@@ -652,6 +652,26 @@ html, body {
 .send-btn:disabled { background: var(--border); cursor: not-allowed; transform: none; }
 .send-btn svg { width: 16px; height: 16px; fill: white; }
 
+.mic-btn {
+  width: 36px; height: 36px;
+  border-radius: var(--radius-md);
+  background: transparent;
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.18s;
+}
+.mic-btn svg { width: 15px; height: 15px; fill: none; stroke: var(--text-mute); stroke-width: 1.4; stroke-linecap: round; transition: stroke 0.18s; }
+.mic-btn:hover { border-color: var(--amber); }
+.mic-btn:hover svg { stroke: var(--amber); }
+.mic-btn.recording { background: #fce5ec; border-color: #b01540; animation: mic-pulse 1s ease-in-out infinite; }
+.mic-btn.recording svg { stroke: #b01540; }
+@keyframes mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(176,21,64,0.3); }
+  50% { box-shadow: 0 0 0 6px rgba(176,21,64,0); }
+}
+
 .input-footer {
   display: flex;
   align-items: center;
@@ -732,6 +752,8 @@ html, body {
     <button class="mode-btn" data-mode="explore" onclick="setMode(this)">Explore</button>
     <button class="mode-btn" data-mode="summarize" onclick="setMode(this)">Summarize</button>
   </div>
+
+  <a href="/exam" style="padding:5px 14px;border-radius:22px;border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.7);font-size:13px;text-decoration:none;white-space:nowrap;transition:all 0.18s" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Practice Exam</a>
 
   <div class="topbar-right">
     <button class="topbar-upload-btn" onclick="document.getElementById('topbarFileInput').click()">
@@ -828,6 +850,9 @@ html, body {
             onkeydown="handleKey(event)"
             oninput="autoResize(this)"
           ></textarea>
+          <button class="mic-btn" id="micBtn" onclick="toggleMic()" title="Speak">
+            <svg viewBox="0 0 16 16"><path d="M8 1a2.5 2.5 0 012.5 2.5v5a2.5 2.5 0 01-5 0v-5A2.5 2.5 0 018 1zm-4 7a4 4 0 008 0M6 15h4M8 13v2"/></svg>
+          </button>
           <button class="send-btn" id="sendBtn" onclick="sendMessage()" disabled title="Send">
             <svg viewBox="0 0 16 16"><path d="M1.5 1.5L14.5 8 1.5 14.5V9.5l9-1.5-9-1.5z"/></svg>
           </button>
@@ -1241,6 +1266,7 @@ function appendAssistantMsg(data) {
 
   document.getElementById('chatInner').appendChild(el);
   scrollBottom();
+  speakText(responseText);
 }
 
 function intentLabel(intent) {
@@ -1297,6 +1323,73 @@ function getDemoResponse(text) {
   if (t.includes('summar') || t.includes('key') || t.includes('main')) return DEMO[2];
   if (t.includes('don\'t') || t.includes('confused') || t.includes('mean') || t.includes('simpler') || t.includes('deeper')) return DEMO[3];
   const r = DEMO[demoIdx % DEMO.length]; demoIdx++; return r;
+}
+
+// ── Voice ─────────────────────────────────────────────────────────────────────
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+let isRecording = false;
+let voiceEnabled = true;  // speak responses aloud
+
+function toggleMic() {
+  if (!SpeechRecognition) {
+    showToast('🎤', 'Not supported', 'Use Chrome or Edge for voice input');
+    return;
+  }
+  isRecording ? stopMic() : startMic();
+}
+
+function startMic() {
+  recognition = new SpeechRecognition();
+  recognition.lang = 'en-US';
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    isRecording = true;
+    document.getElementById('micBtn').classList.add('recording');
+    document.getElementById('chatInput').placeholder = 'Listening…';
+  };
+
+  recognition.onresult = (e) => {
+    const transcript = e.results[0][0].transcript;
+    document.getElementById('chatInput').value = transcript;
+    autoResize(document.getElementById('chatInput'));
+    document.getElementById('sendBtn').disabled = false;
+    stopMic();
+    sendMessage();
+  };
+
+  recognition.onerror = () => stopMic();
+  recognition.onend = () => stopMic();
+  recognition.start();
+}
+
+function stopMic() {
+  isRecording = false;
+  document.getElementById('micBtn').classList.remove('recording');
+  const input = document.getElementById('chatInput');
+  if (!input.value) {
+    input.placeholder = document.getElementById('chatInput').placeholder !== 'Listening…'
+      ? input.placeholder : 'Ask anything about your documents…';
+  }
+  if (recognition) { try { recognition.stop(); } catch (_) {} recognition = null; }
+}
+
+function speakText(text) {
+  if (!voiceEnabled || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  // Strip markdown and citations for cleaner speech
+  const clean = text
+    .replace(/\[Source:[^\]]+\]/gi, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const utter = new SpeechSynthesisUtterance(clean);
+  utter.rate = 1.0;
+  utter.pitch = 1.0;
+  window.speechSynthesis.speak(utter);
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────

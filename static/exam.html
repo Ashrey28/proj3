@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EduRAG — Practice Exam</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --navy: #0f1f3d; --navy-light: #1a3160; --navy-border: rgba(255,255,255,0.08);
+  --amber: #c47f2a; --amber-light: #e8a94a; --amber-pale: #fdf3e3; --amber-border: rgba(196,127,42,0.3);
+  --cream: #faf8f4; --cream-dark: #f0ece3; --white: #ffffff;
+  --text: #1a1814; --text-mid: #4a4540; --text-mute: #8a8278;
+  --border: #e2ddd6; --border-light: #ede9e2;
+  --topbar-h: 52px; --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px;
+}
+html, body { height: 100%; font-family: 'DM Sans', sans-serif; background: var(--cream); color: var(--text); }
+
+/* Topbar */
+.topbar { position: fixed; top: 0; left: 0; right: 0; height: var(--topbar-h); background: var(--navy); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; z-index: 100; border-bottom: 1px solid var(--navy-border); }
+.logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.logo-mark { width: 30px; height: 30px; background: var(--amber); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+.logo-mark svg { width: 16px; height: 16px; fill: white; }
+.logo-name { font-family: 'Lora', serif; font-size: 18px; color: white; }
+.logo-name em { color: var(--amber-light); font-style: normal; }
+.nav-links { display: flex; gap: 4px; }
+.nav-link { padding: 5px 16px; border-radius: 22px; border: none; background: transparent; color: rgba(255,255,255,0.55); font-size: 13px; font-family: 'DM Sans', sans-serif; cursor: pointer; text-decoration: none; transition: all 0.18s; white-space: nowrap; }
+.nav-link:hover { color: rgba(255,255,255,0.85); }
+.nav-link.active { background: var(--amber); color: white; }
+
+/* Page layout */
+.page { padding-top: var(--topbar-h); min-height: 100vh; }
+.container { max-width: 760px; margin: 0 auto; padding: 36px 24px 60px; }
+
+/* Config card */
+.card { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px; margin-bottom: 24px; }
+.card-title { font-family: 'Lora', serif; font-size: 20px; font-weight: 400; color: var(--navy); margin-bottom: 20px; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group.full { grid-column: 1 / -1; }
+label { font-size: 12px; font-weight: 500; color: var(--text-mute); letter-spacing: 0.06em; text-transform: uppercase; }
+input[type="text"], input[type="number"] {
+  border: 1.5px solid var(--border); border-radius: var(--radius-md);
+  padding: 9px 13px; font-family: 'DM Sans', sans-serif; font-size: 14px;
+  color: var(--text); background: var(--cream); outline: none; transition: border-color 0.18s;
+}
+input:focus { border-color: var(--amber); }
+input[type="number"] { width: 100%; }
+.breakdown-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.generate-btn {
+  margin-top: 20px; width: 100%; padding: 12px; border-radius: var(--radius-md);
+  border: none; background: var(--navy); color: white; font-family: 'DM Sans', sans-serif;
+  font-size: 15px; cursor: pointer; transition: background 0.18s;
+}
+.generate-btn:hover { background: var(--navy-light); }
+.generate-btn:disabled { background: var(--border); cursor: not-allowed; }
+
+/* Exam output */
+.exam-header { margin-bottom: 24px; }
+.exam-title { font-family: 'Lora', serif; font-size: 22px; font-weight: 400; color: var(--navy); margin-bottom: 6px; }
+.exam-meta { font-size: 13px; color: var(--text-mute); }
+
+.question-block { background: var(--white); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; margin-bottom: 14px; }
+.q-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.q-num { font-size: 13px; font-weight: 500; color: var(--text-mute); }
+.q-badge { font-size: 10px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; padding: 3px 9px; border-radius: 20px; }
+.badge-mcq { background: #e3f0fd; color: #1655a0; }
+.badge-frq { background: #e4f5e8; color: #256b2f; }
+.badge-tf  { background: #f0e8fb; color: #6520a0; }
+
+.q-text { font-size: 15px; line-height: 1.65; color: var(--text); margin-bottom: 16px; }
+
+/* MCQ options */
+.options { display: flex; flex-direction: column; gap: 8px; }
+.option-label {
+  display: flex; align-items: flex-start; gap: 10px; padding: 10px 14px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-md);
+  cursor: pointer; transition: all 0.15s; font-size: 14px; line-height: 1.5;
+}
+.option-label:hover { border-color: var(--amber); background: var(--amber-pale); }
+.option-label input { margin-top: 2px; accent-color: var(--amber); flex-shrink: 0; }
+.option-label.correct { border-color: #4caf50; background: #f0faf0; }
+.option-label.wrong   { border-color: #e53935; background: #fff5f5; }
+.option-key { font-weight: 500; color: var(--navy); min-width: 18px; }
+
+/* FRQ */
+.frq-textarea {
+  width: 100%; min-height: 90px; border: 1.5px solid var(--border); border-radius: var(--radius-md);
+  padding: 10px 13px; font-family: 'DM Sans', sans-serif; font-size: 14px;
+  color: var(--text); resize: vertical; outline: none; background: var(--cream);
+}
+.frq-textarea:focus { border-color: var(--amber); }
+
+/* T/F */
+.tf-row { display: flex; gap: 10px; }
+.tf-btn {
+  flex: 1; padding: 10px; border: 1.5px solid var(--border); border-radius: var(--radius-md);
+  background: transparent; font-family: 'DM Sans', sans-serif; font-size: 14px;
+  cursor: pointer; transition: all 0.15s;
+}
+.tf-btn:hover { border-color: var(--amber); background: var(--amber-pale); }
+.tf-btn.selected { border-color: var(--navy); background: var(--navy); color: white; }
+.tf-btn.correct { border-color: #4caf50; background: #f0faf0; color: #256b2f; }
+.tf-btn.wrong   { border-color: #e53935; background: #fff5f5; color: #c62828; }
+
+/* Answer reveal */
+.answer-reveal { margin-top: 12px; padding: 12px 14px; background: var(--amber-pale); border: 1px solid var(--amber-border); border-radius: var(--radius-md); font-size: 13.5px; line-height: 1.6; display: none; }
+.answer-reveal strong { color: var(--navy); }
+.explanation { margin-top: 6px; font-size: 12.5px; color: var(--text-mute); }
+
+/* Action bar */
+.action-bar { display: flex; gap: 10px; margin-top: 8px; }
+.check-btn {
+  padding: 11px 28px; border-radius: var(--radius-md); border: none;
+  background: var(--amber); color: white; font-family: 'DM Sans', sans-serif;
+  font-size: 14px; cursor: pointer; transition: background 0.18s;
+}
+.check-btn:hover { background: #b06f1e; }
+.reset-btn {
+  padding: 11px 20px; border-radius: var(--radius-md);
+  border: 1px solid var(--border); background: transparent;
+  font-family: 'DM Sans', sans-serif; font-size: 14px; cursor: pointer; transition: all 0.15s;
+}
+.reset-btn:hover { background: var(--cream-dark); }
+
+/* Score banner */
+.score-banner { padding: 18px 22px; border-radius: var(--radius-lg); background: var(--navy); color: white; margin-bottom: 20px; display: none; }
+.score-banner h2 { font-family: 'Lora', serif; font-weight: 400; font-size: 20px; margin-bottom: 4px; }
+.score-banner p { font-size: 13px; color: rgba(255,255,255,0.6); }
+
+/* Spinner */
+.spinner { display: none; text-align: center; padding: 48px; }
+.spinner-ring { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--amber); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 14px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner p { color: var(--text-mute); font-size: 14px; }
+
+.error-msg { background: #fff5f5; border: 1px solid #fcc; border-radius: var(--radius-md); padding: 14px 18px; color: #c62828; font-size: 14px; margin-bottom: 16px; display: none; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a class="logo" href="/">
+    <div class="logo-mark"><svg viewBox="0 0 16 16"><path d="M2 2h5v5H2zm7 0h5v5H9zM2 9h5v5H2zm7 3a2 2 0 104 0 2 2 0 00-4 0z"/></svg></div>
+    <span class="logo-name">Learn<em>Lens</em></span>
+  </a>
+  <nav class="nav-links">
+    <a class="nav-link" href="/">Chat</a>
+    <a class="nav-link active" href="/exam">Practice Exam</a>
+    <a class="nav-link" href="/developer">Developer</a>
+  </nav>
+</header>
+
+<div class="page">
+  <div class="container">
+
+    <!-- Config -->
+    <div class="card">
+      <div class="card-title">Generate a Practice Exam</div>
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Chapters / Topics</label>
+          <input type="text" id="chaptersInput" placeholder="e.g. 1, 3, 5–7  or  thermodynamics, entropy">
+        </div>
+        <div class="form-group full">
+          <label>Question breakdown</label>
+          <div class="breakdown-row">
+            <div class="form-group">
+              <label>Multiple Choice</label>
+              <input type="number" id="mcqCount" min="0" max="20" value="3">
+            </div>
+            <div class="form-group">
+              <label>Free Response</label>
+              <input type="number" id="frqCount" min="0" max="20" value="2">
+            </div>
+            <div class="form-group">
+              <label>True / False</label>
+              <input type="number" id="tfCount" min="0" max="20" value="0">
+            </div>
+          </div>
+        </div>
+      </div>
+      <button class="generate-btn" id="generateBtn" onclick="generateExam()">Generate Exam</button>
+    </div>
+
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="spinner" id="spinner"><div class="spinner-ring"></div><p>Generating your exam…</p></div>
+
+    <!-- Exam output -->
+    <div id="examOutput" style="display:none">
+      <div class="exam-header">
+        <div class="exam-title" id="examTitle"></div>
+        <div class="exam-meta" id="examMeta"></div>
+      </div>
+      <div class="score-banner" id="scoreBanner">
+        <h2 id="scoreText"></h2>
+        <p id="scoreDetail"></p>
+      </div>
+      <div id="questionsList"></div>
+      <div class="action-bar">
+        <button class="check-btn" id="checkBtn" onclick="checkAnswers()">Check Answers</button>
+        <button class="reset-btn" onclick="resetExam()">Reset</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let examData = null;
+let tfSelections = {};  // questionIndex -> 'true'|'false'
+
+async function generateExam() {
+  const chapters = document.getElementById('chaptersInput').value.trim();
+  const mcq = parseInt(document.getElementById('mcqCount').value) || 0;
+  const frq = parseInt(document.getElementById('frqCount').value) || 0;
+  const tf  = parseInt(document.getElementById('tfCount').value)  || 0;
+
+  if (!chapters) { showError('Please enter chapters or topics.'); return; }
+  if (mcq + frq + tf === 0) { showError('Specify at least one question.'); return; }
+
+  hideError();
+  document.getElementById('examOutput').style.display = 'none';
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('generateBtn').disabled = true;
+
+  try {
+    const res = await fetch('/api/exam', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chapters, mcq, frq, true_false: tf }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Server error ' + res.status);
+    }
+    examData = await res.json();
+    tfSelections = {};
+    renderExam(examData);
+  } catch (e) {
+    showError(e.message);
+  } finally {
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('generateBtn').disabled = false;
+  }
+}
+
+function renderExam(data) {
+  document.getElementById('examTitle').textContent = data.title || 'Practice Exam';
+  const qs = data.questions || [];
+  const mcqN = qs.filter(q => q.type === 'mcq').length;
+  const frqN = qs.filter(q => q.type === 'frq').length;
+  const tfN  = qs.filter(q => q.type === 'tf').length;
+  const parts = [];
+  if (mcqN) parts.push(`${mcqN} MCQ`);
+  if (frqN) parts.push(`${frqN} FRQ`);
+  if (tfN)  parts.push(`${tfN} T/F`);
+  document.getElementById('examMeta').textContent = `${qs.length} questions · ${parts.join(' · ')}`;
+  document.getElementById('scoreBanner').style.display = 'none';
+
+  const list = document.getElementById('questionsList');
+  list.innerHTML = '';
+
+  qs.forEach((q, i) => {
+    const block = document.createElement('div');
+    block.className = 'question-block';
+    block.id = `q-${i}`;
+
+    const typeLabel = { mcq: 'Multiple Choice', frq: 'Free Response', tf: 'True / False' }[q.type] || q.type;
+    const badgeClass = { mcq: 'badge-mcq', frq: 'badge-frq', tf: 'badge-tf' }[q.type] || 'badge-mcq';
+
+    let body = '';
+    if (q.type === 'mcq') {
+      const opts = Object.entries(q.options || {}).map(([k, v]) => `
+        <label class="option-label" id="opt-${i}-${k}">
+          <input type="radio" name="q${i}" value="${k}"> <span class="option-key">${k}.</span> ${esc(v)}
+        </label>`).join('');
+      body = `<div class="options">${opts}</div>`;
+    } else if (q.type === 'frq') {
+      body = `<textarea class="frq-textarea" id="frq-${i}" placeholder="Write your answer…"></textarea>`;
+    } else if (q.type === 'tf') {
+      body = `<div class="tf-row">
+        <button class="tf-btn" id="tf-${i}-true"  onclick="selectTF(${i},'true')">True</button>
+        <button class="tf-btn" id="tf-${i}-false" onclick="selectTF(${i},'false')">False</button>
+      </div>`;
+    }
+
+    block.innerHTML = `
+      <div class="q-header">
+        <span class="q-num">Q${i + 1}</span>
+        <span class="q-badge ${badgeClass}">${typeLabel}</span>
+      </div>
+      <div class="q-text">${esc(q.question)}</div>
+      ${body}
+      <div class="answer-reveal" id="reveal-${i}"></div>`;
+    list.appendChild(block);
+  });
+
+  document.getElementById('checkBtn').textContent = 'Check Answers';
+  document.getElementById('checkBtn').onclick = checkAnswers;
+  document.getElementById('examOutput').style.display = 'block';
+  window.scrollTo({ top: document.getElementById('examOutput').offsetTop - 70, behavior: 'smooth' });
+}
+
+function selectTF(idx, val) {
+  tfSelections[idx] = val;
+  ['true','false'].forEach(v => {
+    const btn = document.getElementById(`tf-${idx}-${v}`);
+    btn.classList.toggle('selected', v === val);
+  });
+}
+
+function checkAnswers() {
+  if (!examData) return;
+  const qs = examData.questions || [];
+  let auto = 0, autoTotal = 0;
+
+  qs.forEach((q, i) => {
+    const reveal = document.getElementById(`reveal-${i}`);
+    reveal.style.display = 'block';
+
+    if (q.type === 'mcq') {
+      autoTotal++;
+      const selected = document.querySelector(`input[name="q${i}"]:checked`);
+      const correct = (q.answer || '').toUpperCase();
+      reveal.innerHTML = `<strong>Answer:</strong> ${correct}. ${esc(q.options?.[correct] || '')}${q.explanation ? `<div class="explanation">${esc(q.explanation)}</div>` : ''}`;
+      Object.keys(q.options || {}).forEach(k => {
+        const lbl = document.getElementById(`opt-${i}-${k}`);
+        if (k === correct) lbl.classList.add('correct');
+        else if (selected?.value === k) lbl.classList.add('wrong');
+      });
+      if (selected?.value === correct) auto++;
+
+    } else if (q.type === 'frq') {
+      reveal.innerHTML = `<strong>Model Answer:</strong> ${esc(q.answer || '')}`;
+
+    } else if (q.type === 'tf') {
+      autoTotal++;
+      const correct = String(q.answer) === 'true' ? 'true' : 'false';
+      const chosen = tfSelections[i];
+      reveal.innerHTML = `<strong>Answer:</strong> ${correct === 'true' ? 'True' : 'False'}`;
+      ['true','false'].forEach(v => {
+        const btn = document.getElementById(`tf-${i}-${v}`);
+        if (v === correct) btn.classList.add('correct');
+        else if (v === chosen && v !== correct) btn.classList.add('wrong');
+      });
+      if (chosen === correct) auto++;
+    }
+  });
+
+  if (autoTotal > 0) {
+    const pct = Math.round((auto / autoTotal) * 100);
+    const banner = document.getElementById('scoreBanner');
+    document.getElementById('scoreText').textContent = `Score: ${auto} / ${autoTotal} (${pct}%)`;
+    document.getElementById('scoreDetail').textContent = 'Auto-graded MCQ and True/False only. Review FRQ answers manually.';
+    banner.style.display = 'block';
+    window.scrollTo({ top: banner.offsetTop - 70, behavior: 'smooth' });
+  }
+
+  document.getElementById('checkBtn').textContent = 'Checked';
+  document.getElementById('checkBtn').onclick = null;
+}
+
+function resetExam() {
+  if (!examData) return;
+  tfSelections = {};
+  renderExam(examData);
+}
+
+function showError(msg) { const el = document.getElementById('errorMsg'); el.textContent = msg; el.style.display = 'block'; }
+function hideError() { document.getElementById('errorMsg').style.display = 'none'; }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+document.getElementById('chaptersInput').addEventListener('keydown', e => { if (e.key === 'Enter') generateExam(); });
+</script>
+</body>
+</html>
