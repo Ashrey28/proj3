@@ -33,7 +33,7 @@ kb = VectorKnowledgeBase()
 evaluation_store = EvaluationStore()
 grounded_engine = GroundedResponseEngine()
 sessions: Dict[str, Dict[str, Any]] = {}
-MIN_RELEVANCE_SCORE = 0.45
+MIN_RELEVANCE_SCORE = 0.30
 MIN_TOP_SCORE_GAP = 0.03
 STOPWORDS = {
     "a", "an", "and", "are", "as", "at", "be", "by", "do", "for", "from", "how", "i", "in", "is", "it", "like", "me", "my", "of", "on", "or", "our", "should", "tell", "that", "the", "their", "them", "there", "these", "this", "to", "today", "was", "we", "what", "when", "where", "which", "who", "why", "will", "with", "you", "your"
@@ -44,6 +44,7 @@ class ChatRequest(BaseModel):
     message: str
     session_id: Optional[str] = None
     intent_override: Optional[str] = None  # explicit mode from UI (quiz, explore, summarize, etc.)
+    depth_override: Optional[int] = None   # explicit depth from UI (1=beginner, 2=intermediate, 3=advanced)
 
 
 class IngestRequest(BaseModel):
@@ -219,6 +220,11 @@ async def chat(request: ChatRequest) -> JSONResponse:
     if "depth_label" not in classified:
         classified["depth_label"] = ["", "beginner", "intermediate", "advanced"][classified["depth"]]
 
+    # UI depth override — respect the user's sidebar selection
+    if request.depth_override and request.depth_override in (1, 2, 3):
+        classified["depth"] = request.depth_override
+        classified["depth_label"] = ["", "beginner", "intermediate", "advanced"][request.depth_override]
+
     # UI mode override — developer-controlled intent selection (User Story 8)
     _MODE_TO_INTENT = {"quiz": "challenge", "explore": "explore", "summarize": "summarize", "learn": None}
     if request.intent_override and request.intent_override in _MODE_TO_INTENT:
@@ -228,7 +234,7 @@ async def chat(request: ChatRequest) -> JSONResponse:
             if forced != "challenge":
                 classified["challenge_subtype"] = None
 
-    retrieved = filter_retrieved_results(request.message, kb.search(request.message, top_k=3))
+    retrieved = filter_retrieved_results(request.message, kb.search(request.message, top_k=5))
     chunks = [{"text": item.text, "source": item.source, "page": item.page, "score": round(item.score, 4), "metadata": item.metadata} for item in retrieved]
     prompt_result = route_prompt(classified=classified, question=request.message, chunks=chunks, last_problem=session.get("last_problem"))
     grounded = await grounded_engine.answer(request.message, chunks, prompt_result.user_prompt, router_persona=prompt_result.system_prompt)
@@ -298,12 +304,13 @@ class ExamRequest(BaseModel):
     mcq: int = 3
     frq: int = 2
     true_false: int = 0
+    math: int = 0
 
 
 @app.post("/api/exam")
 async def generate_exam(request: ExamRequest) -> JSONResponse:
     from grounding import USE_LOCAL
-    total = request.mcq + request.frq + request.true_false
+    total = request.mcq + request.frq + request.true_false + request.math
     if total == 0:
         raise HTTPException(status_code=400, detail="Specify at least one question.")
 
@@ -315,21 +322,40 @@ async def generate_exam(request: ExamRequest) -> JSONResponse:
         f"[{i+1}] ({r.source}{f', p.{r.page}' if r.page else ''})\n{r.text}"
         for i, r in enumerate(retrieved)
     )
+
+    math_context = ""
+    if request.math:
+        math_results = kb.search(
+            f"chapter {request.chapters} equation formula derivation calculate solve problem example",
+            top_k=8,
+        )
+        if math_results:
+            math_context = "\n\nMATH SOURCE MATERIAL (worked examples and equations from the textbook — adapt these for math problems):\n" + "\n\n".join(
+                f"[M{i+1}] ({r.source}{f', p.{r.page}' if r.page else ''})\n{r.text}"
+                for i, r in enumerate(math_results)
+            )
+
     breakdown = []
     if request.mcq: breakdown.append(f"{request.mcq} multiple-choice (4 options A-D, include 'answer' key with correct letter)")
     if request.frq: breakdown.append(f"{request.frq} free-response (include 'answer' key with model answer)")
     if request.true_false: breakdown.append(f"{request.true_false} true/false (include 'answer' key: true or false)")
+    if request.math: breakdown.append(
+        f"{request.math} math problems: take specific equations or worked examples from the MATH SOURCE MATERIAL and create a new problem by modifying the scenario, changing variable values, or asking for a different step. "
+        f"Show all relevant equations using LaTeX (use \\\\( ... \\\\) for inline math and \\\\[ ... \\\\] for display math). "
+        f"Include a full step-by-step solution in the 'answer' field, also in LaTeX."
+    )
 
     prompt = f"""Generate a practice exam on: {request.chapters}
 Breakdown: {', '.join(breakdown)}. Total: {total} questions. Use ONLY the source material below.
 
-{context}
+{context}{math_context}
 
 Return JSON exactly:
 {{"title": "Practice Exam — <topic>", "questions": [
   {{"type": "mcq", "question": "...", "options": {{"A": "...", "B": "...", "C": "...", "D": "..."}}, "answer": "A", "explanation": "..."}},
   {{"type": "frq", "question": "...", "answer": "..."}},
-  {{"type": "tf", "question": "...", "answer": true}}
+  {{"type": "tf", "question": "...", "answer": true}},
+  {{"type": "math", "question": "State the problem with equations in LaTeX...", "answer": "Step-by-step solution in LaTeX..."}}
 ]}}"""
 
     if USE_LOCAL or grounded_engine.client is None:
@@ -339,11 +365,11 @@ Return JSON exactly:
         resp = await grounded_engine.client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a rigorous exam generator. Only use provided material. Return valid JSON only."},
+                {"role": "system", "content": "You are a rigorous exam generator. Only use provided material. Return valid JSON only. For math problems, write all equations in proper LaTeX using \\( ... \\) for inline and \\[ ... \\] for display math."},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.3,
-            max_tokens=2500,
+            max_tokens=3500,
             response_format={"type": "json_object"},
         )
         return JSONResponse(json.loads(resp.choices[0].message.content or "{}"))

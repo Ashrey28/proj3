@@ -3,8 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EduRAG — Adaptive Learning Companion</title>
+<title>LearnLens — Adaptive Learning Companion</title>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="window._katexReady=true"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1175,6 +1178,7 @@ async function sendMessage() {
       message: text,
       session_id: sessionId,
       intent_override: currentMode !== 'learn' ? currentMode : undefined,
+      depth_override: currentDepth,
     };
 
     const res = await fetch(API_BASE + '/chat', {
@@ -1265,6 +1269,14 @@ function appendAssistantMsg(data) {
   `;
 
   document.getElementById('chatInner').appendChild(el);
+  if (window._katexReady) {
+    renderMathInElement(el, { delimiters: [
+      { left: '\\(', right: '\\)', display: false },
+      { left: '\\[', right: '\\]', display: true },
+      { left: '$$', right: '$$', display: true },
+      { left: '$', right: '$', display: false },
+    ], throwOnError: false });
+  }
   scrollBottom();
   speakText(responseText);
 }
@@ -1274,15 +1286,35 @@ function intentLabel(intent) {
 }
 
 function formatBubble(text) {
-  let t = escHtml(text);
+  // JSON escape sequences corrupt LaTeX: \text → [TAB]ext, \rangle → [CR]angle, etc.
+  // Restore them before anything else.
+  let t = text
+    .replace(/\x08(?=[a-zA-Z])/g, '\\b')   // backspace + letter → \b  (\bra, \beta, \begin…)
+    .replace(/\x09(?=[a-zA-Z])/g, '\\t')   // tab + letter       → \t  (\text, \theta, \tau…)
+    .replace(/\x0C(?=[a-zA-Z])/g, '\\f')   // form-feed + letter → \f  (\frac, \forall…)
+    .replace(/\x0D(?=[a-zA-Z])/g, '\\r')   // CR + letter        → \r  (\rangle, \rightarrow…)
+    .replace(/\x0D\x0A/g, '\n')            // CRLF → LF
+    .replace(/\x0D/g, '\n')               // bare CR → LF
+    .replace(/\\r\\n/g, '\n')             // literal \r\n sequence → newline
+    .replace(/\\n/g, '\n');               // literal \n sequence → newline
+
+  // Stash math regions so escHtml doesn't corrupt < > inside them
+  const mathStash = [];
+  t = t.replace(/(\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$\$[\s\S]*?\$\$|\$[^$\n]+?\$)/g, (m) => {
+    mathStash.push(m);
+    return `\x00MATH${mathStash.length - 1}\x00`;
+  });
+
+  t = escHtml(t);
   // Bold
   t = t.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   // Inline code
   t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
-  // Math blocks (lines starting with spaces + equation-like content)
-  t = t.replace(/(    .{5,})/g, '<div class="math-block">$1</div>');
   // Paragraphs
   t = t.split('\n\n').map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+
+  // Restore math regions
+  t = t.replace(/\x00MATH(\d+)\x00/g, (_, i) => mathStash[+i]);
   return t;
 }
 

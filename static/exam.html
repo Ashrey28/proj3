@@ -3,8 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>EduRAG — Practice Exam</title>
+<title>LearnLens — Practice Exam</title>
 <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="window._katexReady=true"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -47,7 +50,7 @@ input[type="text"], input[type="number"] {
 }
 input:focus { border-color: var(--amber); }
 input[type="number"] { width: 100%; }
-.breakdown-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.breakdown-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .generate-btn {
   margin-top: 20px; width: 100%; padding: 12px; border-radius: var(--radius-md);
   border: none; background: var(--navy); color: white; font-family: 'DM Sans', sans-serif;
@@ -65,9 +68,10 @@ input[type="number"] { width: 100%; }
 .q-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
 .q-num { font-size: 13px; font-weight: 500; color: var(--text-mute); }
 .q-badge { font-size: 10px; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; padding: 3px 9px; border-radius: 20px; }
-.badge-mcq { background: #e3f0fd; color: #1655a0; }
-.badge-frq { background: #e4f5e8; color: #256b2f; }
-.badge-tf  { background: #f0e8fb; color: #6520a0; }
+.badge-mcq  { background: #e3f0fd; color: #1655a0; }
+.badge-frq  { background: #e4f5e8; color: #256b2f; }
+.badge-tf   { background: #f0e8fb; color: #6520a0; }
+.badge-math { background: #fdf3e3; color: #8a4a00; }
 
 .q-text { font-size: 15px; line-height: 1.65; color: var(--text); margin-bottom: 16px; }
 
@@ -178,6 +182,10 @@ input[type="number"] { width: 100%; }
               <label>True / False</label>
               <input type="number" id="tfCount" min="0" max="20" value="0">
             </div>
+            <div class="form-group">
+              <label>Math Problems</label>
+              <input type="number" id="mathCount" min="0" max="20" value="0">
+            </div>
           </div>
         </div>
       </div>
@@ -213,12 +221,13 @@ let tfSelections = {};  // questionIndex -> 'true'|'false'
 
 async function generateExam() {
   const chapters = document.getElementById('chaptersInput').value.trim();
-  const mcq = parseInt(document.getElementById('mcqCount').value) || 0;
-  const frq = parseInt(document.getElementById('frqCount').value) || 0;
-  const tf  = parseInt(document.getElementById('tfCount').value)  || 0;
+  const mcq  = parseInt(document.getElementById('mcqCount').value)  || 0;
+  const frq  = parseInt(document.getElementById('frqCount').value)  || 0;
+  const tf   = parseInt(document.getElementById('tfCount').value)   || 0;
+  const math = parseInt(document.getElementById('mathCount').value) || 0;
 
   if (!chapters) { showError('Please enter chapters or topics.'); return; }
-  if (mcq + frq + tf === 0) { showError('Specify at least one question.'); return; }
+  if (mcq + frq + tf + math === 0) { showError('Specify at least one question.'); return; }
 
   hideError();
   document.getElementById('examOutput').style.display = 'none';
@@ -229,7 +238,7 @@ async function generateExam() {
     const res = await fetch('/api/exam', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chapters, mcq, frq, true_false: tf }),
+      body: JSON.stringify({ chapters, mcq, frq, true_false: tf, math }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -249,13 +258,15 @@ async function generateExam() {
 function renderExam(data) {
   document.getElementById('examTitle').textContent = data.title || 'Practice Exam';
   const qs = data.questions || [];
-  const mcqN = qs.filter(q => q.type === 'mcq').length;
-  const frqN = qs.filter(q => q.type === 'frq').length;
-  const tfN  = qs.filter(q => q.type === 'tf').length;
+  const mcqN  = qs.filter(q => q.type === 'mcq').length;
+  const frqN  = qs.filter(q => q.type === 'frq').length;
+  const tfN   = qs.filter(q => q.type === 'tf').length;
+  const mathN = qs.filter(q => q.type === 'math').length;
   const parts = [];
-  if (mcqN) parts.push(`${mcqN} MCQ`);
-  if (frqN) parts.push(`${frqN} FRQ`);
-  if (tfN)  parts.push(`${tfN} T/F`);
+  if (mcqN)  parts.push(`${mcqN} MCQ`);
+  if (frqN)  parts.push(`${frqN} FRQ`);
+  if (tfN)   parts.push(`${tfN} T/F`);
+  if (mathN) parts.push(`${mathN} Math`);
   document.getElementById('examMeta').textContent = `${qs.length} questions · ${parts.join(' · ')}`;
   document.getElementById('scoreBanner').style.display = 'none';
 
@@ -267,8 +278,8 @@ function renderExam(data) {
     block.className = 'question-block';
     block.id = `q-${i}`;
 
-    const typeLabel = { mcq: 'Multiple Choice', frq: 'Free Response', tf: 'True / False' }[q.type] || q.type;
-    const badgeClass = { mcq: 'badge-mcq', frq: 'badge-frq', tf: 'badge-tf' }[q.type] || 'badge-mcq';
+    const typeLabel = { mcq: 'Multiple Choice', frq: 'Free Response', tf: 'True / False', math: 'Math Problem' }[q.type] || q.type;
+    const badgeClass = { mcq: 'badge-mcq', frq: 'badge-frq', tf: 'badge-tf', math: 'badge-math' }[q.type] || 'badge-mcq';
 
     let body = '';
     if (q.type === 'mcq') {
@@ -279,6 +290,8 @@ function renderExam(data) {
       body = `<div class="options">${opts}</div>`;
     } else if (q.type === 'frq') {
       body = `<textarea class="frq-textarea" id="frq-${i}" placeholder="Write your answer…"></textarea>`;
+    } else if (q.type === 'math') {
+      body = `<textarea class="frq-textarea" id="frq-${i}" placeholder="Show your work…"></textarea>`;
     } else if (q.type === 'tf') {
       body = `<div class="tf-row">
         <button class="tf-btn" id="tf-${i}-true"  onclick="selectTF(${i},'true')">True</button>
@@ -291,11 +304,20 @@ function renderExam(data) {
         <span class="q-num">Q${i + 1}</span>
         <span class="q-badge ${badgeClass}">${typeLabel}</span>
       </div>
-      <div class="q-text">${esc(q.question)}</div>
+      <div class="q-text">${escMath(q.question)}</div>
       ${body}
       <div class="answer-reveal" id="reveal-${i}"></div>`;
     list.appendChild(block);
   });
+
+  if (window._katexReady) {
+    renderMathInElement(list, { delimiters: [
+      { left: '\\(', right: '\\)', display: false },
+      { left: '\\[', right: '\\]', display: true },
+      { left: '$$', right: '$$', display: true },
+      { left: '$', right: '$', display: false },
+    ], throwOnError: false });
+  }
 
   document.getElementById('checkBtn').textContent = 'Check Answers';
   document.getElementById('checkBtn').onclick = checkAnswers;
@@ -333,7 +355,10 @@ function checkAnswers() {
       if (selected?.value === correct) auto++;
 
     } else if (q.type === 'frq') {
-      reveal.innerHTML = `<strong>Model Answer:</strong> ${esc(q.answer || '')}`;
+      reveal.innerHTML = `<strong>Model Answer:</strong> ${escMath(q.answer || '')}`;
+
+    } else if (q.type === 'math') {
+      reveal.innerHTML = `<strong>Solution:</strong><br>${escMath(q.answer || '')}`;
 
     } else if (q.type === 'tf') {
       autoTotal++;
@@ -349,11 +374,20 @@ function checkAnswers() {
     }
   });
 
+  if (window._katexReady) {
+    renderMathInElement(document.getElementById('questionsList'), { delimiters: [
+      { left: '\\(', right: '\\)', display: false },
+      { left: '\\[', right: '\\]', display: true },
+      { left: '$$', right: '$$', display: true },
+      { left: '$', right: '$', display: false },
+    ], throwOnError: false });
+  }
+
   if (autoTotal > 0) {
     const pct = Math.round((auto / autoTotal) * 100);
     const banner = document.getElementById('scoreBanner');
     document.getElementById('scoreText').textContent = `Score: ${auto} / ${autoTotal} (${pct}%)`;
-    document.getElementById('scoreDetail').textContent = 'Auto-graded MCQ and True/False only. Review FRQ answers manually.';
+    document.getElementById('scoreDetail').textContent = 'Auto-graded MCQ and True/False only. Review FRQ and Math answers manually.';
     banner.style.display = 'block';
     window.scrollTo({ top: banner.offsetTop - 70, behavior: 'smooth' });
   }
@@ -371,6 +405,21 @@ function resetExam() {
 function showError(msg) { const el = document.getElementById('errorMsg'); el.textContent = msg; el.style.display = 'block'; }
 function hideError() { document.getElementById('errorMsg').style.display = 'none'; }
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function escMath(s) {
+  s = String(s||'')
+    .replace(/\x08(?=[a-zA-Z])/g, '\\b')
+    .replace(/\x09(?=[a-zA-Z])/g, '\\t')
+    .replace(/\x0C(?=[a-zA-Z])/g, '\\f')
+    .replace(/\x0D(?=[a-zA-Z])/g, '\\r')
+    .replace(/\x0D\x0A/g, '\n').replace(/\x0D/g, '\n')
+    .replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
+  // Stash math so < > inside equations survive escaping
+  const stash = [];
+  s = s.replace(/(\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\)|\$\$[\s\S]*?\$\$|\$[^$\n]+?\$)/g, m => { stash.push(m); return `\x00M${stash.length-1}\x00`; });
+  s = esc(s);
+  return s.replace(/\x00M(\d+)\x00/g, (_, i) => stash[+i]);
+}
 
 document.getElementById('chaptersInput').addEventListener('keydown', e => { if (e.key === 'Enter') generateExam(); });
 </script>
