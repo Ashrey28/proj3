@@ -128,6 +128,19 @@ input[type="number"] { width: 100%; }
 }
 .reset-btn:hover { background: var(--cream-dark); }
 
+.download-btn {
+  padding: 11px 20px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--amber-border);
+  background: var(--amber-pale);
+  color: var(--amber);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.download-btn:hover { background: #fae5c0; border-color: var(--amber); }
+
 /* Score banner */
 .score-banner { padding: 18px 22px; border-radius: var(--radius-lg); background: var(--navy); color: white; margin-bottom: 20px; display: none; }
 .score-banner h2 { font-family: 'Lora', serif; font-weight: 400; font-size: 20px; margin-bottom: 4px; }
@@ -209,6 +222,8 @@ input[type="number"] { width: 100%; }
       <div class="action-bar">
         <button class="check-btn" id="checkBtn" onclick="checkAnswers()">Check Answers</button>
         <button class="reset-btn" onclick="resetExam()">Reset</button>
+        <button class="download-btn" onclick="downloadExam(false)">Download Blank</button>
+        <button class="download-btn" onclick="downloadExam(true)">Download Answer Key</button>
       </div>
     </div>
 
@@ -400,6 +415,131 @@ function resetExam() {
   if (!examData) return;
   tfSelections = {};
   renderExam(examData);
+}
+
+function downloadExam(withAnswers) {
+  if (!examData) return;
+  const qs = examData.questions || [];
+  const title = esc(examData.title || 'Practice Exam');
+  const filename = withAnswers ? 'exam-answer-key.html' : 'exam-blank.html';
+
+  let questionsHtml = '';
+  qs.forEach((q, i) => {
+    const typeLabel = { mcq: 'Multiple Choice', frq: 'Free Response', tf: 'True / False', math: 'Math Problem' }[q.type] || q.type;
+    const badgeColors = {
+      mcq:  'background:#e3f0fd;color:#1655a0',
+      frq:  'background:#e4f5e8;color:#256b2f',
+      tf:   'background:#f0e8fb;color:#6520a0',
+      math: 'background:#fdf3e3;color:#8a4a00',
+    };
+    const badgeStyle = badgeColors[q.type] || badgeColors.mcq;
+
+    let bodyHtml = '';
+
+    if (q.type === 'mcq') {
+      const opts = Object.entries(q.options || {}).map(([k, v]) => {
+        const isCorrect = withAnswers && k === (q.answer || '').toUpperCase();
+        const style = isCorrect
+          ? 'border:1.5px solid #4caf50;background:#f0faf0;padding:8px 12px;border-radius:6px;margin-bottom:6px;font-weight:600;'
+          : 'border:1.5px solid #e2ddd6;padding:8px 12px;border-radius:6px;margin-bottom:6px;';
+        const checkmark = isCorrect ? ' &#10003;' : '';
+        return `<div style="${style}"><strong>${esc(k)}.</strong> ${esc(v)}${checkmark}</div>`;
+      }).join('');
+      bodyHtml = `<div>${opts}</div>`;
+
+    } else if (q.type === 'frq') {
+      if (withAnswers) {
+        bodyHtml = `<div style="margin-top:10px;padding:12px 14px;background:#fdf3e3;border:1px solid rgba(196,127,42,0.3);border-radius:6px;font-size:13.5px;line-height:1.6;">
+          <strong>Model Answer:</strong> ${esc(q.answer || '')}
+        </div>`;
+      } else {
+        bodyHtml = `<div style="margin-top:10px;">
+          <div style="border-bottom:1px solid #ccc;height:32px;margin-bottom:8px;"></div>
+          <div style="border-bottom:1px solid #ccc;height:32px;margin-bottom:8px;"></div>
+          <div style="border-bottom:1px solid #ccc;height:32px;"></div>
+        </div>`;
+      }
+
+    } else if (q.type === 'math') {
+      if (withAnswers) {
+        bodyHtml = `<div style="margin-top:10px;padding:12px 14px;background:#fdf3e3;border:1px solid rgba(196,127,42,0.3);border-radius:6px;font-size:13.5px;line-height:1.6;">
+          <strong>Solution:</strong><br>${esc(q.answer || '').replace(/\n/g,'<br>')}
+        </div>`;
+      } else {
+        bodyHtml = `<div style="margin-top:10px;">
+          <div style="border:1.5px dashed #ccc;min-height:80px;border-radius:6px;"></div>
+        </div>`;
+      }
+
+    } else if (q.type === 'tf') {
+      const correct = String(q.answer) === 'true' ? 'true' : 'false';
+      const trueStyle = withAnswers && correct === 'true'
+        ? 'border:1.5px solid #4caf50;background:#f0faf0;font-weight:600;'
+        : 'border:1.5px solid #e2ddd6;';
+      const falseStyle = withAnswers && correct === 'false'
+        ? 'border:1.5px solid #4caf50;background:#f0faf0;font-weight:600;'
+        : 'border:1.5px solid #e2ddd6;';
+      bodyHtml = `<div style="display:flex;gap:10px;margin-top:10px;">
+        <div style="flex:1;padding:10px;border-radius:6px;text-align:center;${trueStyle}">True${withAnswers && correct === 'true' ? ' &#10003;' : ''}</div>
+        <div style="flex:1;padding:10px;border-radius:6px;text-align:center;${falseStyle}">False${withAnswers && correct === 'false' ? ' &#10003;' : ''}</div>
+      </div>`;
+    }
+
+    questionsHtml += `
+    <div style="background:#fff;border:1px solid #e2ddd6;border-radius:10px;padding:22px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <span style="font-size:13px;font-weight:500;color:#8a8278;">Q${i + 1}</span>
+        <span style="font-size:10px;font-weight:500;letter-spacing:0.07em;text-transform:uppercase;padding:3px 9px;border-radius:20px;${badgeStyle}">${esc(typeLabel)}</span>
+      </div>
+      <div style="font-size:15px;line-height:1.65;color:#1a1814;margin-bottom:16px;">${escMath(q.question)}</div>
+      ${bodyHtml}
+    </div>`;
+  });
+
+  const modeLabel = withAnswers ? 'Answer Key' : 'Blank Exam';
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>${title} — ${modeLabel}</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"><\/script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body,{delimiters:[
+    {left:'\\\\(',right:'\\\\)',display:false},
+    {left:'\\\\[',right:'\\\\]',display:true},
+    {left:'$$',right:'$$',display:true},
+    {left:'$',right:'$',display:false}
+  ],throwOnError:false})"><\/script>
+<style>
+  body { font-family: 'Arial', sans-serif; background: #fff; color: #1a1814; margin: 0; padding: 0; }
+  .page { max-width: 760px; margin: 0 auto; padding: 48px 40px 60px; }
+  h1 { font-size: 22px; font-weight: 400; color: #0f1f3d; margin-bottom: 4px; }
+  .meta { font-size: 13px; color: #8a8278; margin-bottom: 32px; }
+  .mode-badge { display:inline-block;font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;padding:3px 10px;border-radius:20px;background:${withAnswers ? '#fce5ec' : '#e3f0fd'};color:${withAnswers ? '#b01540' : '#1655a0'};margin-left:10px;vertical-align:middle; }
+  .footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #e2ddd6; font-size: 11px; color: #8a8278; text-align: center; }
+  @media print { body { background: white; } .page { padding: 20px; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>${title} <span class="mode-badge">${modeLabel}</span></h1>
+  <div class="meta">Generated by LearnLens &nbsp;·&nbsp; ${qs.length} question${qs.length !== 1 ? 's' : ''}</div>
+  ${questionsHtml}
+  <div class="footer">Generated by LearnLens</div>
+</div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function showError(msg) { const el = document.getElementById('errorMsg'); el.textContent = msg; el.style.display = 'block'; }
