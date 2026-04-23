@@ -760,6 +760,22 @@ $('addBtn').addEventListener('click', addToDataset);
 $('reloadBtn').addEventListener('click', reloadDataset);
 $('clearBtn').addEventListener('click', clearDataset);
 $('evalBtn').addEventListener('click', runEval);
+
+async function scrapeUrl(){
+  const url=$('scrapeUrl').value.trim();
+  if(!url){ $('scrapeStatus').textContent='Please enter a URL.'; return; }
+  $('scrapeStatus').textContent='Scraping…';
+  try{
+    const data=await fetch('/api/ingest/url',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})}).then(r=>r.json());
+    $('scrapeStatus').textContent=`Done! Added ${data.added} chunks from ${data.source}. Dataset now has ${data.count} chunks.`;
+    $('scrapeUrl').value='';
+    await refreshDataset();
+    await checkHealth();
+  }catch(e){ $('scrapeStatus').textContent=`Scrape failed: ${e.message}`; }
+}
+
+$('scrapeBtn').addEventListener('click', scrapeUrl);
+
 checkHealth();
 refreshDataset();
 renderLog();
