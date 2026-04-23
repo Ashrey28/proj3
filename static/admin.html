@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f7f7f7;
+      color: #111;
+    }
+    h1 {
+      margin-bottom: 20px;
+    }
+    .card {
+      background: white;
+      padding: 20px;
+      margin-bottom: 20px;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .metric {
+      background: #fafafa;
+      padding: 14px;
+      border-radius: 8px;
+      border: 1px solid #eee;
+    }
+    .metric-key {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 6px;
+    }
+    .metric-val {
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .metric-sub {
+      font-size: 12px;
+      color: #888;
+      margin-top: 4px;
+    }
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    input, textarea, button {
+      font-family: inherit;
+      font-size: 15px;
+    }
+    input, textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    button {
+      padding: 10px 14px;
+      border: 0;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #111;
+      color: white;
+    }
+    button.secondary {
+      background: #555;
+    }
+    button.danger {
+      background: #b00020;
+    }
+    .status {
+      margin-top: 10px;
+      color: #333;
+    }
+    .log-item {
+      border-bottom: 1px solid #eee;
+      padding: 10px 0;
+    }
+    .log-time {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+    .log-main {
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    .log-ms {
+      font-size: 12px;
+      color: #888;
+    }
+    .empty-note {
+      color: #777;
+      font-size: 14px;
+    }
+    a {
+      color: #111;
+    }
+  </style>
+</head>
+<body>
+  <h1>Admin Dashboard</h1>
+
+  <div class="card">
+    <h2>Monitoring</h2>
+    <div class="metrics">
+      <div class="metric">
+        <div class="metric-key">Documents</div>
+        <div class="metric-val" id="docCount">—</div>
+        <div class="metric-sub">chunks in knowledge base</div>
+      </div>
+      <div class="metric">
+        <div class="metric-key">Total Queries</div>
+        <div class="metric-val" id="queryCount">—</div>
+        <div class="metric-sub" id="querySub">chat requests</div>
+      </div>
+      <div class="metric">
+        <div class="metric-key">Avg Latency</div>
+        <div class="metric-val" id="avgLatency">—</div>
+        <div class="metric-sub">successful responses</div>
+      </div>
+      <div class="metric">
+        <div class="metric-key">Failures</div>
+        <div class="metric-val" id="failures">—</div>
+        <div class="metric-sub" id="failureSub">chat failures</div>
+      </div>
+      <div class="metric">
+        <div class="metric-key">Admin Actions</div>
+        <div class="metric-val" id="adminActions">—</div>
+        <div class="metric-sub" id="adminSub">reload, clear, add, edit, delete</div>
+      </div>
+      <div class="metric">
+        <div class="metric-key">Status</div>
+        <div class="metric-val" id="sysStatus">—</div>
+        <div class="metric-sub" id="sysStatusSub">health</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Knowledge Base Controls</h2>
+    <input id="source" placeholder="Source name" />
+    <textarea id="text" placeholder="Enter text to add to the knowledge base"></textarea>
+    <input id="page" type="number" placeholder="Page number" />
+    <div class="row">
+      <button onclick="addToDataset()">Add</button>
+      <button class="secondary" onclick="reloadDataset()">Reload</button>
+      <button class="danger" onclick="clearDataset()">Clear</button>
+    </div>
+    <div class="status" id="ingestStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>Quick Chat Test</h2>
+    <div class="row">
+      <button onclick="sendTestQuery()">Send Test Query</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Recent Usage Logs</h2>
+    <div id="logList" class="empty-note">Loading logs...</div>
+  </div>
+
+  <div class="card">
+    <a href="/">Main site</a>
+    &nbsp;|&nbsp;
+    <a href="/developer">Developer page</a>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    function escHtml(s) {
+      return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function formatTimestamp(value) {
+      if (!value) return '—';
+      const d = new Date(value);
+      return isNaN(d.getTime()) ? value : d.toLocaleString();
+    }
+
+    async function fetchJson(url, options) {
+      const res = await fetch(url, options);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || data.error || `Request failed (${res.status})`);
+      return data;
+    }
+
+    async function checkHealth() {
+      try {
+        const data = await fetchJson('/health');
+        $('sysStatus').textContent = data.ok ? 'OK' : 'DOWN';
+        $('sysStatusSub').textContent = `${data.documents ?? 0} documents loaded`;
+      } catch (e) {
+        $('sysStatus').textContent = 'ERROR';
+        $('sysStatusSub').textContent = 'health check failed';
+      }
+    }
+
+    function renderLog(logs) {
+      const list = $('logList');
+      if (!logs || logs.length === 0) {
+        list.innerHTML = '<div class="empty-note">No logs yet.</div>';
+        return;
+      }
+
+      list.innerHTML = logs.map(item => {
+        const mainText = item.event_type === 'chat_query'
+          ? `${escHtml(item.query || 'chat request')} (${escHtml(item.status || 'success')})`
+          : `${escHtml(item.event_type || 'admin action')} (${escHtml(item.status || 'success')})`;
+
+        return `
+          <div class="log-item">
+            <div class="log-time">${formatTimestamp(item.timestamp)}</div>
+            <div class="log-main">${mainText}</div>
+            <div class="log-ms">${item.latency_ms ?? '—'} ms</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function refreshAdminMetrics() {
+      try {
+        const data = await fetchJson('/api/admin/metrics');
+        $('docCount').textContent = data.documents ?? 0;
+        $('queryCount').textContent = data.chat_requests ?? 0;
+        $('querySub').textContent = `${data.success_rate_pct ?? 0}% success rate`;
+        $('avgLatency').textContent = `${Math.round(data.avg_chat_latency_ms ?? 0)} ms`;
+        $('failures').textContent = data.chat_failures ?? 0;
+        $('failureSub').textContent = `${data.chat_successes ?? 0} successful chats`;
+        $('adminActions').textContent = data.admin_actions ?? 0;
+        $('adminSub').textContent = `last reload: ${data.last_reload_at ? formatTimestamp(data.last_reload_at) : 'never'}`;
+        renderLog(data.logs || []);
+      } catch (e) {
+        $('docCount').textContent = '—';
+        $('queryCount').textContent = '—';
+        $('avgLatency').textContent = '—';
+        $('failures').textContent = '—';
+        $('adminActions').textContent = '—';
+        renderLog([]);
+      }
+    }
+
+    async function addToDataset() {
+      const source = $('source').value.trim();
+      const text = $('text').value.trim();
+      const page = Number($('page').value || 1);
+
+      if (!text) {
+        $('ingestStatus').textContent = 'Please enter text first.';
+        return;
+      }
+
+      $('ingestStatus').textContent = 'Adding...';
+      try {
+        const data = await fetchJson('/api/dataset/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source, text, page })
+        });
+        $('ingestStatus').textContent = `Added. Dataset now has ${data.count} chunks.`;
+        $('text').value = '';
+        await checkHealth();
+        await refreshAdminMetrics();
+      } catch (e) {
+        $('ingestStatus').textContent = `Add failed: ${e.message}`;
+      }
+    }
+
+    async function reloadDataset() {
+      $('ingestStatus').textContent = 'Reloading...';
+      try {
+        const data = await fetchJson('/api/dataset/reload', { method: 'POST' });
+        $('ingestStatus').textContent = `Reloaded. Dataset now has ${data.count} chunks.`;
+        await checkHealth();
+        await refreshAdminMetrics();
+      } catch (e) {
+        $('ingestStatus').textContent = `Reload failed: ${e.message}`;
+      }
+    }
+
+    async function clearDataset() {
+      const ok = confirm('Are you sure you want to clear the knowledge base?');
+      if (!ok) return;
+
+      $('ingestStatus').textContent = 'Clearing...';
+      try {
+        const data = await fetchJson('/api/dataset/clear', { method: 'POST' });
+        $('ingestStatus').textContent = `Cleared. Dataset now has ${data.count} chunks.`;
+        await checkHealth();
+        await refreshAdminMetrics();
+      } catch (e) {
+        $('ingestStatus').textContent = `Clear failed: ${e.message}`;
+      }
+    }
+
+    async function sendTestQuery() {
+      const q = prompt('Enter a test question:');
+      if (!q) return;
+
+      try {
+        await fetchJson('/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: q })
+        });
+        await refreshAdminMetrics();
+      } catch (e) {
+        await refreshAdminMetrics();
+        alert(`Query failed: ${e.message}`);
+      }
+    }
+
+    checkHealth();
+    refreshAdminMetrics();
+    setInterval(refreshAdminMetrics, 15000);
+  </script>
+</body>
+</html>
