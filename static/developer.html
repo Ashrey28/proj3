@@ -532,6 +532,16 @@ pre {
           </section>
 
           <section class="card">
+            <div class="card-title">Ingest from URL</div>
+            <div class="card-sub">Scrape a webpage and add its content to the knowledge base.</div>
+            <div class="field"><label>Website URL</label><input id="scrapeUrl" placeholder="https://en.wikipedia.org/wiki/..."></div>
+            <div class="row">
+              <button id="scrapeBtn">Scrape & ingest</button>
+            </div>
+            <div id="scrapeStatus" class="status">Idle.</div>
+          </section>
+
+          <section class="card">
             <div class="row" style="justify-content:space-between;margin-bottom:12px">
               <div>
                 <div class="card-title" style="font-size:20px">Dataset preview</div>
