@@ -297,6 +297,39 @@ async def upload_pdf(file: UploadFile = File(...)) -> Dict[str, Any]:
     return {"added": added, "count": len(kb.documents), "pages": len(raw_pages)}
 
 
+class ScrapeRequest(BaseModel):
+    url: str
+
+
+@app.post("/api/ingest/url")
+async def ingest_url(request: ScrapeRequest) -> Dict[str, Any]:
+    """User Story 6: Web scraping ingestion method."""
+    import requests
+    from bs4 import BeautifulSoup
+
+    try:
+        response = requests.get(request.url, timeout=15, headers={
+            "User-Agent": "Mozilla/5.0 (compatible; EduRAG/1.0)"
+        })
+        response.raise_for_status()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not fetch URL: {str(e)}")
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    for tag in soup(["script", "style", "nav", "footer", "header"]):
+        tag.decompose()
+
+    text = soup.get_text(separator="\n")
+    if not text.strip():
+        raise HTTPException(status_code=422, detail="No text content found at that URL.")
+
+    preprocessor = DataPreprocessor(chunk_size=800, chunk_overlap=100)
+    chunks = preprocessor.preprocess(text, source=request.url)
+    chunks = [c for c in chunks if preprocessor.validate_chunk(c["text"])]
+
+    added = kb.add_documents(chunks)
+    return {"added": added, "count": len(kb.documents), "source": request.url}
+
 @app.put("/api/dataset/{doc_id}")
 async def update_document(doc_id: str, request: UpdateDocumentRequest) -> Dict[str, Any]:
     start = time.time()

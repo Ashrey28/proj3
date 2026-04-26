@@ -18,24 +18,30 @@ class DataPreprocessor:
         self.chunk_overlap = chunk_overlap
 
     def preprocess(self, raw_text: str, source: Optional[str] = None) -> List[dict]:
-        """
-        Full preprocessing pipeline: clean, normalize, chunk, and return
-        structured documents ready for ingestion.
-
-        Args:
-            raw_text: The raw input text to preprocess.
-            source: Optional source identifier for traceability.
-
-        Returns:
-            A list of dicts, each with 'text', 'source', and 'chunk_index'.
-        """
         if not raw_text or not raw_text.strip():
             return []
+
+        print("\n" + "=" * 70)
+        print(f"[PREPROCESSOR] Source: {source or 'unknown'}")
+        print("=" * 70)
+        print("BEFORE preprocessing (first 500 chars of raw input):")
+        print("-" * 70)
+        print(raw_text[:500])
+        print("-" * 70)
+        print(f"Raw input length: {len(raw_text)} characters\n")
 
         text = self.clean_text(raw_text)
         text = self.normalize_text(text)
         chunks = self.chunk_text(text)
         chunks = self.deduplicate_chunks(chunks)
+
+        print("AFTER preprocessing (first 500 chars of cleaned text):")
+        print("-" * 70)
+        print(text[:500])
+        print("-" * 70)
+        print(f"Cleaned text length: {len(text)} characters")
+        print(f"Number of chunks produced: {len(chunks)}")
+        print("=" * 70 + "\n")
 
         documents = []
         for i, chunk in enumerate(chunks):
