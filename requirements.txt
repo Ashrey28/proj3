@@ -3,3 +3,4 @@ uvicorn
 pymupdf
 pydantic
 python-multipart
+openai
