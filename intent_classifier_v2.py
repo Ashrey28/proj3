@@ -12,7 +12,7 @@ except Exception:
 
 client = None if USE_LOCAL or AsyncOpenAI is None else AsyncOpenAI()
 
-INTENTS = ["define", "explain", "explore", "challenge", "clarify", "summarize"]
+INTENTS = ["define", "explain", "explore", "challenge", "clarify", "summarize", "study_guide"]
 CHALLENGE_SUBTYPES = ["pull", "similar", "simpler", "harder", "general"]
 
 CLASSIFICATION_PROMPT = """You are an intent classifier for an adaptive learning chatbot.
@@ -48,6 +48,8 @@ def _local_classify(message: str) -> dict:
         intent, subtype = "challenge", "simpler"
     elif re.search(r'\b(similar|like that)\b', m):
         intent, subtype = "challenge", "similar"
+    elif re.search(r'\b(study guide|how to study|prep guide|overview for|exam prep|prepare for)\b', m):
+        intent, subtype = "study_guide", None
     elif re.search(r'\b(how does|how do|why does|why do|explain|walk me through|how is|how are)\b', m):
         intent, subtype = "explain", None
     else:

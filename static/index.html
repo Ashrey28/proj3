@@ -801,6 +801,7 @@ html, body {
     <button class="mode-btn" data-mode="quiz" onclick="setMode(this)">Quiz me</button>
     <button class="mode-btn" data-mode="explore" onclick="setMode(this)">Explore</button>
     <button class="mode-btn" data-mode="summarize" onclick="setMode(this)">Summarize</button>
+    <button class="mode-btn" data-mode="studyguide" onclick="setMode(this)">Study Guide</button>
   </div>
 
   <a href="/exam" style="padding:5px 14px;border-radius:22px;border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.7);font-size:13px;text-decoration:none;white-space:nowrap;transition:all 0.18s" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.7)'">Practice Exam</a>
@@ -916,6 +917,7 @@ html, body {
             <button class="quick-btn" onclick="useQuick('explain this more simply')">Simpler</button>
             <button class="quick-btn" onclick="useQuick('go deeper on this topic')">Deeper</button>
             <button class="quick-btn" onclick="useQuick('give me a practice problem on this')">Practice</button>
+            <button class="quick-btn" id="stepBtn" onclick="toggleStepByStep()">Step-by-step: Off</button>
           </div>
         </div>
       </div>
@@ -956,6 +958,8 @@ const API_BASE = '';  // e.g. 'http://localhost:8000' for local dev
 let sessionId = null;
 let currentDepth = 2;
 let currentMode = 'learn';
+let stepByStep = false;
+let lastUserQuestion = '';
 let currentNotebook = null;
 let notebooks = [];
 let isBusy = false;
@@ -970,8 +974,17 @@ function setMode(btn) {
     quiz: 'Ask for a practice problem on any topic…',
     explore: 'What concept do you want to explore?',
     summarize: 'What section should I summarize?',
+    studyguide: 'Generate a study guide for: ',
   };
   document.getElementById('chatInput').placeholder = placeholders[currentMode] || placeholders.learn;
+}
+
+// ── Step-by-step toggle ──────────────────────────────────────────────────────
+function toggleStepByStep() {
+  stepByStep = !stepByStep;
+  const btn = document.getElementById('stepBtn');
+  btn.textContent = stepByStep ? 'Step-by-step: On' : 'Step-by-step: Off';
+  btn.style.opacity = stepByStep ? '1' : '0.6';
 }
 
 // ── Depth switching ───────────────────────────────────────────────────────────
@@ -1212,6 +1225,11 @@ function sendWithIntent(message, intentOverride) {
   currentMode = savedMode;
 }
 
+function sendFollowup(message, intentOverride) {
+  const contextMsg = lastUserQuestion ? `${message} (about: ${lastUserQuestion})` : message;
+  sendWithIntent(contextMsg, intentOverride);
+}
+
 // ── Welcome removal ───────────────────────────────────────────────────────────
 function hideWelcome() {
   const w = document.getElementById('welcomeState');
@@ -1224,6 +1242,7 @@ async function sendMessage() {
   const text = input.value.trim();
   if (!text || isBusy) return;
 
+  lastUserQuestion = text;
   isBusy = true;
   document.getElementById('sendBtn').disabled = true;
   input.value = '';
@@ -1239,6 +1258,7 @@ async function sendMessage() {
       session_id: sessionId,
       intent_override: currentMode !== 'learn' ? currentMode : undefined,
       depth_override: currentDepth,
+      step_by_step: stepByStep,
     };
 
     const res = await fetch(API_BASE + '/chat', {
@@ -1321,15 +1341,15 @@ function appendAssistantMsg(data) {
 
   const isChallenge = (intent === 'challenge');
   const challengeButtons = `
-    <button class="followup-btn" onclick="sendWithIntent('give me a hint','quiz')">Hint</button>
-    <button class="followup-btn" onclick="sendWithIntent('show the full solution','quiz')">Show solution</button>
-    <button class="followup-btn" onclick="sendWithIntent('give me a similar problem','quiz')">Try similar</button>
-    <button class="followup-btn" onclick="sendWithIntent('give me a harder version','quiz')">Harder</button>
+    <button class="followup-btn" onclick="sendFollowup('give me a hint on this problem','quiz')">Hint</button>
+    <button class="followup-btn" onclick="sendFollowup('show the full solution','quiz')">Show solution</button>
+    <button class="followup-btn" onclick="sendFollowup('give me a similar problem','quiz')">Try similar</button>
+    <button class="followup-btn" onclick="sendFollowup('give me a harder version','quiz')">Harder</button>
   `;
   const generalButtons = `
-    <button class="followup-btn" onclick="sendWithIntent('tell me more about this','')">Tell me more</button>
-    <button class="followup-btn" onclick="sendWithIntent('give me an example','')">Give an example</button>
-    <button class="followup-btn" onclick="sendWithIntent('explain this more simply','')">Simplify</button>
+    <button class="followup-btn" onclick="sendFollowup('tell me more about this','')">Tell me more</button>
+    <button class="followup-btn" onclick="sendFollowup('give me an example','')">Give an example</button>
+    <button class="followup-btn" onclick="sendFollowup('explain this more simply','')">Simplify</button>
   `;
 
   el.innerHTML = `

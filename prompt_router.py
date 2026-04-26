@@ -156,10 +156,29 @@ User request: {question}
 Generate one focused question that tests understanding of the topic.
 Match the depth level strictly. Use the retrieved content as your source.
 Do NOT give the answer yet — wait for the user to respond.""",
+
+    "study_guide": """You are an expert educational content designer.
+The user wants a structured study guide. {depth_instruction}
+
+Retrieved context from the knowledge base:
+{context}
+
+Topic: {question}
+
+Create a comprehensive study guide for this topic with the following sections:
+1. **Key Concepts** — list 3-5 core ideas with brief definitions
+2. **Detailed Explanations** — expand on each concept with examples
+3. **Common Questions & Misconceptions** — highlight what students typically struggle with
+4. **Practice Patterns** — describe the types of problems or questions to expect
+5. **Study Tips** — actionable advice for mastering this topic
+6. **Quick Reference** — a cheat-sheet summary of the main points
+
+Ground everything in the retrieved context. Cite sources as [Source: <document name>].
+Make it practical and learning-focused, not just informational.""",
 }
 
 # Intents that map directly to a template key
-_DIRECT_INTENTS = {"define", "explain", "explore", "clarify", "summarize"}
+_DIRECT_INTENTS = {"define", "explain", "explore", "clarify", "summarize", "study_guide"}
 
 
 # ─── Result dataclass ────────────────────────────────────────────────────────

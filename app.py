@@ -110,6 +110,7 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None
     intent_override: Optional[str] = None
     depth_override: Optional[int] = None
+    step_by_step: bool = False
 
 
 class IngestRequest(BaseModel):
@@ -173,6 +174,11 @@ async def developer_page() -> FileResponse:
 @app.get("/admin")
 async def admin_page() -> FileResponse:
     return FileResponse(os.path.join(STATIC_DIR, "admin.html"))
+
+
+@app.get("/exam")
+async def exam_page() -> FileResponse:
+    return FileResponse(os.path.join(STATIC_DIR, "exam.html"))
 
 
 @app.get("/health")
@@ -374,6 +380,7 @@ async def chat(request: ChatRequest) -> JSONResponse:
             "quiz": "challenge",
             "explore": "explore",
             "summarize": "summarize",
+            "studyguide": "study_guide",
             "learn": None,
         }
         if request.intent_override and request.intent_override in mode_to_intent:
@@ -402,10 +409,14 @@ async def chat(request: ChatRequest) -> JSONResponse:
             last_problem=session.get("last_problem"),
         )
 
+        user_prompt = prompt_result.user_prompt
+        if request.step_by_step:
+            user_prompt += "\n\nIMPORTANT: Do NOT just give the final answer. Walk through the solution step by step. Number each step. For each step, explain what you are doing and why before moving on to the next."
+
         grounded = await grounded_engine.answer(
             request.message,
             chunks,
-            prompt_result.user_prompt,
+            user_prompt,
             router_persona=prompt_result.system_prompt,
         )
 
