@@ -766,7 +766,17 @@ async function scrapeUrl(){
   if(!url){ $('scrapeStatus').textContent='Please enter a URL.'; return; }
   $('scrapeStatus').textContent='Scraping…';
   try{
-    const data=await fetch('/api/ingest/url',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url})}).then(r=>r.json());
+    const res = await fetch('/api/ingest/url', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({url})
+});
+
+const data = await res.json();
+
+if (!data.success) {
+  throw new Error(data.error || 'Scrape failed');
+}
     $('scrapeStatus').textContent=`Done! Added ${data.added} chunks from ${data.source}. Dataset now has ${data.count} chunks.`;
     $('scrapeUrl').value='';
     await refreshDataset();
