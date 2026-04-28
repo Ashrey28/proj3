@@ -4,3 +4,5 @@ pymupdf
 pydantic
 python-multipart
 openai
+requests
+beautifulsoup4
