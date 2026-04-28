@@ -303,32 +303,45 @@ class ScrapeRequest(BaseModel):
 
 @app.post("/api/ingest/url")
 async def ingest_url(request: ScrapeRequest) -> Dict[str, Any]:
-    """User Story 6: Web scraping ingestion method."""
-    import requests
-    from bs4 import BeautifulSoup
-
     try:
-        response = requests.get(request.url, timeout=15, headers={
-            "User-Agent": "Mozilla/5.0 (compatible; EduRAG/1.0)"
-        })
+        import requests
+        from bs4 import BeautifulSoup
+
+        response = requests.get(
+            request.url,
+            timeout=15,
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
         response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        for tag in soup(["script", "style", "nav", "footer", "header"]):
+            tag.decompose()
+
+        text = soup.get_text(separator="\n")
+
+        if not text.strip():
+            return {"success": False, "error": "No text content found at that URL."}
+
+        preprocessor = DataPreprocessor(chunk_size=800, chunk_overlap=100)
+        chunks = preprocessor.preprocess(text, source=request.url)
+        chunks = [c for c in chunks if preprocessor.validate_chunk(c["text"])]
+
+        added = kb.add_documents(chunks)
+
+        return {
+            "success": True,
+            "added": added,
+            "count": len(kb.documents),
+            "source": request.url
+        }
+
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not fetch URL: {str(e)}")
-
-    soup = BeautifulSoup(response.text, "html.parser")
-    for tag in soup(["script", "style", "nav", "footer", "header"]):
-        tag.decompose()
-
-    text = soup.get_text(separator="\n")
-    if not text.strip():
-        raise HTTPException(status_code=422, detail="No text content found at that URL.")
-
-    preprocessor = DataPreprocessor(chunk_size=800, chunk_overlap=100)
-    chunks = preprocessor.preprocess(text, source=request.url)
-    chunks = [c for c in chunks if preprocessor.validate_chunk(c["text"])]
-
-    added = kb.add_documents(chunks)
-    return {"added": added, "count": len(kb.documents), "source": request.url}
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 @app.put("/api/dataset/{doc_id}")
 async def update_document(doc_id: str, request: UpdateDocumentRequest) -> Dict[str, Any]:
